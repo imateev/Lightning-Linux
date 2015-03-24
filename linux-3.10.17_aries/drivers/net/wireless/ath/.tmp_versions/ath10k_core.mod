@@ -1,2 +1,0 @@
-drivers/net/wireless/ath/ath10k/ath10k_core.ko
-drivers/net/wireless/ath/ath10k/mac.o drivers/net/wireless/ath/ath10k/debug.o drivers/net/wireless/ath/ath10k/core.o drivers/net/wireless/ath/ath10k/htc.o drivers/net/wireless/ath/ath10k/htt.o drivers/net/wireless/ath/ath10k/htt_rx.o drivers/net/wireless/ath/ath10k/htt_tx.o drivers/net/wireless/ath/ath10k/txrx.o drivers/net/wireless/ath/ath10k/wmi.o drivers/net/wireless/ath/ath10k/bmi.o
