@@ -2181,7 +2181,7 @@ static ssize_t ethproc_write(struct file *filp, const char __user *usr_buf,
              eth0 = 1;
              gpio_direction_output(25, 1);
              gpio_set_value(25, 1); 
-             msleep(10000);
+             msleep(2000);
              //printk("set eth0_reset high\n");
          }
     }
