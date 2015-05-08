@@ -946,6 +946,8 @@ u64 snd_usb_interface_dsd_format_quirks(struct snd_usb_audio *chip,
         {
             return SNDRV_PCM_FMTBIT_DSD_U32_BE;
         }
+        
+        return SNDRV_PCM_FMTBIT_DSD_U32_BE;
     }
 	
     /* XMOS based USB DACs */
