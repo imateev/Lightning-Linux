@@ -942,14 +942,20 @@ u64 snd_usb_interface_dsd_format_quirks(struct snd_usb_audio *chip,
 		}
 	}
     if (le16_to_cpu(chip->dev->descriptor.idVendor) == 0x1511) {
-        if (fp->altsetting == 2)
+        if ((fp->altsetting == 2) || (fp->altsetting == 3) )
         {
             return SNDRV_PCM_FMTBIT_DSD_U32_BE;
         }
         
-        return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+        return 0;
     }
-	
+    else 
+    {
+        if ((fp->altsetting == 2) || (fp->altsetting == 3) )
+                return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+        else
+                return 0;
+    }
     /* XMOS based USB DACs */
 #if 0 // by hyf
     switch (chip->usb_id) {
@@ -968,5 +974,5 @@ u64 snd_usb_interface_dsd_format_quirks(struct snd_usb_audio *chip,
 	}
 #endif
 
-	return 0;
+	//return 0;
 }
