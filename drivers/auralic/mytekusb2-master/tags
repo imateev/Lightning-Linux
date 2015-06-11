@@ -1,0 +1,187 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+COMM_EP	comm.c	/^	COMM_EP = 1,$/;"	e	enum:__anon1	file:
+COMM_FPGA_EP	comm.c	/^	COMM_FPGA_EP = 2$/;"	e	enum:__anon1	file:
+COMM_RECEIVER_BUFSIZE	comm.h	/^	COMM_RECEIVER_BUFSIZE = 64,$/;"	e	enum:__anon2
+CONTROL_MAX_ELEMENTS	control.h	/^	CONTROL_MAX_ELEMENTS = 32$/;"	e	enum:__anon4
+CONTROL_N_RATES	control.h	/^	CONTROL_N_RATES$/;"	e	enum:__anon5
+CONTROL_RATE_176KHZ	control.h	/^	CONTROL_RATE_176KHZ,$/;"	e	enum:__anon5
+CONTROL_RATE_192KHZ	control.h	/^	CONTROL_RATE_192KHZ,$/;"	e	enum:__anon5
+CONTROL_RATE_44KHZ	control.h	/^	CONTROL_RATE_44KHZ,$/;"	e	enum:__anon5
+CONTROL_RATE_48KHZ	control.h	/^	CONTROL_RATE_48KHZ,$/;"	e	enum:__anon5
+CONTROL_RATE_88KHZ	control.h	/^	CONTROL_RATE_88KHZ,$/;"	e	enum:__anon5
+CONTROL_RATE_96KHZ	control.h	/^	CONTROL_RATE_96KHZ,$/;"	e	enum:__anon5
+FPGA_BUFSIZE	firmware.c	/^	FPGA_BUFSIZE = 512, FPGA_EP = 2$/;"	e	enum:__anon6	file:
+FPGA_EP	firmware.c	/^	FPGA_BUFSIZE = 512, FPGA_EP = 2$/;"	e	enum:__anon6	file:
+FW_MYTEK_PATH	Makefile	/^FW_MYTEK_PATH=$(FW_PATH)\/mytek$/;"	m
+FW_NOT_READY	firmware.h	/^	FW_NOT_READY = 1$/;"	e	enum:__anon7
+FW_PATH	Makefile	/^FW_PATH=\/lib\/firmware$/;"	m
+FW_READY	firmware.h	/^	FW_READY = 0,$/;"	e	enum:__anon7
+IN_EP	pcm.c	/^	OUT_EP = 6, IN_EP = 2, MAX_BUFSIZE = 128 * 1024$/;"	e	enum:__anon9	file:
+IN_N_CHANNELS	pcm.c	/^	OUT_N_CHANNELS = 6, IN_N_CHANNELS = 4$/;"	e	enum:__anon8	file:
+KERNEL_BUILD	Makefile	/^KERNEL_BUILD ?= $(shell uname -r)$/;"	m
+KERNEL_VERSION	Makefile	/^KERNEL_VERSION=$(shell echo $(VERSION)*65536+$(PATCHLEVEL)*256|bc)$/;"	m
+KERNEL_VERSION	chip.h	21;"	d
+MAX_BUFSIZE	pcm.c	/^	OUT_EP = 6, IN_EP = 2, MAX_BUFSIZE = 128 * 1024$/;"	e	enum:__anon9	file:
+MYTEK_CHIP_H	chip.h	16;"	d
+MYTEK_COMMON_H	common.h	17;"	d
+MYTEK_COMM_H	comm.h	16;"	d
+MYTEK_CONTROL_H	control.h	17;"	d
+MYTEK_FIRMWARE_H	firmware.h	17;"	d
+MYTEK_PCM_H	pcm.h	17;"	d
+ONFIG_DEBUG_SECTION_MISMATCH	Makefile	/^	make CONFIG_DEBUG_SECTION_MISMATCH=y -C \/root\/linux-3.10.17 M=$(PWD) modules$/;"	m
+OUT_EP	pcm.c	/^	OUT_EP = 6, IN_EP = 2, MAX_BUFSIZE = 128 * 1024$/;"	e	enum:__anon9	file:
+OUT_N_CHANNELS	pcm.c	/^	OUT_N_CHANNELS = 6, IN_N_CHANNELS = 4$/;"	e	enum:__anon8	file:
+PATCHLEVEL	Makefile	/^PATCHLEVEL ?= $(shell uname -r|cut -d. -f2)$/;"	m
+PCM_MAX_PACKET_SIZE	pcm.h	/^	PCM_N_URBS = 16, PCM_N_PACKETS_PER_URB = 8, PCM_MAX_PACKET_SIZE = 604$/;"	e	enum:__anon11
+PCM_N_PACKETS_PER_URB	pcm.h	/^	PCM_N_URBS = 16, PCM_N_PACKETS_PER_URB = 8, PCM_MAX_PACKET_SIZE = 604$/;"	e	enum:__anon11
+PCM_N_URBS	pcm.h	/^	PCM_N_URBS = 16, PCM_N_PACKETS_PER_URB = 8, PCM_MAX_PACKET_SIZE = 604$/;"	e	enum:__anon11
+PREFIX	common.h	23;"	d
+STREAM_DISABLED	pcm.c	/^	STREAM_DISABLED, \/* no pcm streaming *\/$/;"	e	enum:__anon10	file:
+STREAM_RUNNING	pcm.c	/^	STREAM_RUNNING, \/* pcm streaming running *\/$/;"	e	enum:__anon10	file:
+STREAM_STARTING	pcm.c	/^	STREAM_STARTING, \/* pcm streaming requested, waiting to become ready *\/$/;"	e	enum:__anon10	file:
+STREAM_STOPPING	pcm.c	/^	STREAM_STOPPING$/;"	e	enum:__anon10	file:
+VERSION	Makefile	/^VERSION ?= $(shell uname -r|cut -d. -f1)$/;"	m
+active	pcm.h	/^	bool active;$/;"	m	struct:pcm_substream
+address	firmware.c	/^	u16 address;$/;"	m	struct:ihex_record	file:
+buffer	pcm.h	/^	u8 *buffer;$/;"	m	struct:pcm_urb
+card	chip.h	/^	struct snd_card *card;$/;"	m	struct:mytek_chip	typeref:struct:mytek_chip::snd_card
+chip	comm.h	/^	struct mytek_chip *chip;$/;"	m	struct:comm_runtime	typeref:struct:comm_runtime::mytek_chip
+chip	control.h	/^	struct mytek_chip *chip;$/;"	m	struct:control_runtime	typeref:struct:control_runtime::mytek_chip
+chip	pcm.h	/^	struct mytek_chip *chip;$/;"	m	struct:pcm_runtime	typeref:struct:pcm_runtime::mytek_chip
+chip	pcm.h	/^	struct mytek_chip *chip;$/;"	m	struct:pcm_urb	typeref:struct:pcm_urb::mytek_chip
+chips	chip.c	/^static struct mytek_chip *chips[SNDRV_CARDS] = SNDRV_DEFAULT_PTR;$/;"	v	typeref:struct:mytek_chip	file:
+cmdid	comm.h	/^	u8 cmdid;	\/* Unique id for issuing cmd and tracking responses *\/$/;"	m	struct:comm_runtime
+comm	chip.h	/^	struct comm_runtime *comm;$/;"	m	struct:mytek_chip	typeref:struct:mytek_chip::comm_runtime
+comm_runtime	comm.h	/^struct comm_runtime {$/;"	s
+control	chip.h	/^	struct control_runtime *control;$/;"	m	struct:mytek_chip	typeref:struct:mytek_chip::control_runtime
+control_runtime	control.h	/^struct control_runtime {$/;"	s
+data	firmware.c	/^	u8 data[256];$/;"	m	struct:ihex_record	file:
+dev	chip.h	/^	struct usb_device *dev;$/;"	m	struct:mytek_chip	typeref:struct:mytek_chip::usb_device
+device_table	chip.c	/^static struct usb_device_id device_table[] = {$/;"	v	typeref:struct:usb_device_id	file:
+devices	chip.c	/^static struct usb_device *devices[SNDRV_CARDS] = SNDRV_DEFAULT_PTR;$/;"	v	typeref:struct:usb_device	file:
+dma_off	pcm.h	/^	snd_pcm_uframes_t dma_off; \/* current position in alsa dma_area *\/$/;"	m	struct:pcm_substream
+enable	chip.c	/^static bool enable[SNDRV_CARDS] = SNDRV_DEFAULT_ENABLE_PNP; \/* Enable card *\/$/;"	v	file:
+ep_w_max_packet_size	firmware.c	/^static const u8 ep_w_max_packet_size[] = {$/;"	v	file:
+error	firmware.c	/^	char error; \/* true if an error occurred parsing this record *\/$/;"	m	struct:ihex_record	file:
+id	chip.c	/^static char *id[SNDRV_CARDS] = SNDRV_DEFAULT_STR; \/* Id for card *\/$/;"	v	file:
+ihex_record	firmware.c	/^struct ihex_record {$/;"	s	file:
+in_n_analog	pcm.h	/^	int in_n_analog; \/* number of analog channels soundcard sends *\/$/;"	m	struct:pcm_runtime
+in_packet_size	pcm.h	/^	int in_packet_size;$/;"	m	struct:pcm_runtime
+in_urbs	pcm.h	/^	struct pcm_urb in_urbs[PCM_N_URBS];$/;"	m	struct:pcm_runtime	typeref:struct:pcm_runtime::pcm_urb
+index	chip.c	/^static int index[SNDRV_CARDS] = SNDRV_DEFAULT_IDX; \/* Index 0-max *\/$/;"	v	file:
+init_data_mytek	control.c	/^init_data_mytek[] = {$/;"	v	typeref:struct:__anon3	file:
+init_urb	comm.h	/^	void (*init_urb)(struct comm_runtime *rt, struct urb *urb, u8 *buffer,$/;"	m	struct:comm_runtime
+instance	pcm.h	/^	struct snd_pcm *instance;$/;"	m	struct:pcm_runtime	typeref:struct:pcm_runtime::snd_pcm
+instance	pcm.h	/^	struct snd_pcm_substream *instance;$/;"	m	struct:pcm_substream	typeref:struct:pcm_substream::snd_pcm_substream
+instance	pcm.h	/^	struct urb instance;$/;"	m	struct:pcm_urb	typeref:struct:pcm_urb::urb
+intf_count	chip.h	/^	int intf_count; \/* number of registered interfaces *\/$/;"	m	struct:mytek_chip
+known_fw_versions	firmware.c	/^static const u8 known_fw_versions[][4] = {$/;"	v	file:
+len	firmware.c	/^	u8 len;$/;"	m	struct:ihex_record	file:
+lock	pcm.h	/^	spinlock_t lock;$/;"	m	struct:pcm_substream
+max_len	firmware.c	/^	u8 max_len; \/* maximum record length in whole ihex *\/$/;"	m	struct:ihex_record	file:
+mytek_chip	chip.h	/^struct mytek_chip {$/;"	s
+mytek_chip_abort	chip.c	/^static void mytek_chip_abort(struct mytek_chip *chip)$/;"	f	file:
+mytek_chip_destroy	chip.c	/^static void mytek_chip_destroy(struct mytek_chip *chip)$/;"	f	file:
+mytek_chip_disconnect	chip.c	/^static void mytek_chip_disconnect(struct usb_interface *intf)$/;"	f	file:
+mytek_chip_exit	chip.c	/^module_exit(mytek_chip_exit);$/;"	v
+mytek_chip_exit	chip.c	/^static void mytek_chip_exit(void) {$/;"	f	file:
+mytek_chip_init	chip.c	/^module_init(mytek_chip_init);$/;"	v
+mytek_chip_init	chip.c	/^static int mytek_chip_init(void) {$/;"	f	file:
+mytek_chip_probe	chip.c	/^static int mytek_chip_probe(struct usb_interface *intf,$/;"	f	file:
+mytek_comm_abort	comm.c	/^void mytek_comm_abort(struct mytek_chip *chip)$/;"	f
+mytek_comm_destroy	comm.c	/^void mytek_comm_destroy(struct mytek_chip *chip)$/;"	f
+mytek_comm_init	comm.c	/^int mytek_comm_init(struct mytek_chip *chip)$/;"	f
+mytek_comm_init_buffer	comm.c	/^static void mytek_comm_init_buffer(u8 *buffer, u8 id, u8 request,$/;"	f	file:
+mytek_comm_init_urb	comm.c	/^static void mytek_comm_init_urb(struct comm_runtime *rt, struct urb *urb,$/;"	f	file:
+mytek_comm_receiver_handler	comm.c	/^static void mytek_comm_receiver_handler(struct urb *urb)$/;"	f	file:
+mytek_comm_send_buffer	comm.c	/^static int mytek_comm_send_buffer(u8 *buffer, struct usb_device *dev)$/;"	f	file:
+mytek_comm_write16	comm.c	/^static int mytek_comm_write16(struct comm_runtime *rt, u8 request,$/;"	f	file:
+mytek_comm_write8	comm.c	/^static int mytek_comm_write8(struct comm_runtime *rt, u8 request,$/;"	f	file:
+mytek_control_abort	control.c	/^void mytek_control_abort(struct mytek_chip *chip)$/;"	f
+mytek_control_destroy	control.c	/^void mytek_control_destroy(struct mytek_chip *chip)$/;"	f
+mytek_control_init	control.c	/^int mytek_control_init(struct mytek_chip *chip)$/;"	f
+mytek_control_set_channels	control.c	/^static int mytek_control_set_channels($/;"	f	file:
+mytek_control_set_rate	control.c	/^static int mytek_control_set_rate(struct control_runtime *rt, int rate)$/;"	f	file:
+mytek_control_streaming_update	control.c	/^static int mytek_control_streaming_update(struct control_runtime *rt)$/;"	f	file:
+mytek_fw_check	firmware.c	/^static int mytek_fw_check(struct usb_interface *intf, const u8 *version)$/;"	f	file:
+mytek_fw_ezusb_read	firmware.c	/^static int mytek_fw_ezusb_read(struct usb_device *device,$/;"	f	file:
+mytek_fw_ezusb_upload	firmware.c	/^static int mytek_fw_ezusb_upload($/;"	f	file:
+mytek_fw_ezusb_write	firmware.c	/^static int mytek_fw_ezusb_write(struct usb_device *device,$/;"	f	file:
+mytek_fw_fpga_upload	firmware.c	/^static int mytek_fw_fpga_upload($/;"	f	file:
+mytek_fw_fpga_write	firmware.c	/^static int mytek_fw_fpga_write(struct usb_device *device,$/;"	f	file:
+mytek_fw_ihex_hex	firmware.c	/^static u8 mytek_fw_ihex_hex(const u8 *data, u8 *crc)$/;"	f	file:
+mytek_fw_ihex_init	firmware.c	/^static int mytek_fw_ihex_init(const struct firmware *fw,$/;"	f	file:
+mytek_fw_ihex_next_record	firmware.c	/^static bool mytek_fw_ihex_next_record(struct ihex_record *record)$/;"	f	file:
+mytek_fw_init	firmware.c	/^int mytek_fw_init(struct usb_interface *intf)$/;"	f
+mytek_pcm_abort	pcm.c	/^void mytek_pcm_abort(struct mytek_chip *chip)$/;"	f
+mytek_pcm_buffers_destroy	pcm.c	/^static void mytek_pcm_buffers_destroy(struct pcm_runtime *rt)$/;"	f	file:
+mytek_pcm_buffers_init	pcm.c	/^static int mytek_pcm_buffers_init(struct pcm_runtime *rt)$/;"	f	file:
+mytek_pcm_close	pcm.c	/^static int mytek_pcm_close(struct snd_pcm_substream *alsa_sub)$/;"	f	file:
+mytek_pcm_destroy	pcm.c	/^void mytek_pcm_destroy(struct mytek_chip *chip)$/;"	f
+mytek_pcm_get_substream	pcm.c	/^static struct pcm_substream *mytek_pcm_get_substream($/;"	f	file:
+mytek_pcm_hw_free	pcm.c	/^static int mytek_pcm_hw_free(struct snd_pcm_substream *alsa_sub)$/;"	f	file:
+mytek_pcm_hw_params	pcm.c	/^static int mytek_pcm_hw_params(struct snd_pcm_substream *alsa_sub,$/;"	f	file:
+mytek_pcm_in_urb_handler	pcm.c	/^static void mytek_pcm_in_urb_handler(struct urb *usb_urb)$/;"	f	file:
+mytek_pcm_init	pcm.c	/^int mytek_pcm_init(struct mytek_chip *chip)$/;"	f
+mytek_pcm_init_urb	pcm.c	/^static void mytek_pcm_init_urb(struct pcm_urb *urb,$/;"	f	file:
+mytek_pcm_open	pcm.c	/^static int mytek_pcm_open(struct snd_pcm_substream *alsa_sub)$/;"	f	file:
+mytek_pcm_out_urb_handler	pcm.c	/^static void mytek_pcm_out_urb_handler(struct urb *usb_urb)$/;"	f	file:
+mytek_pcm_playback	pcm.c	/^static void mytek_pcm_playback(struct pcm_substream *sub,$/;"	f	file:
+mytek_pcm_pointer	pcm.c	/^static snd_pcm_uframes_t mytek_pcm_pointer($/;"	f	file:
+mytek_pcm_prepare	pcm.c	/^static int mytek_pcm_prepare(struct snd_pcm_substream *alsa_sub)$/;"	f	file:
+mytek_pcm_set_rate	pcm.c	/^static int mytek_pcm_set_rate(struct pcm_runtime *rt)$/;"	f	file:
+mytek_pcm_stream_start	pcm.c	/^static int mytek_pcm_stream_start(struct pcm_runtime *rt)$/;"	f	file:
+mytek_pcm_stream_stop	pcm.c	/^static void mytek_pcm_stream_stop(struct pcm_runtime *rt)$/;"	f	file:
+mytek_pcm_trigger	pcm.c	/^static int mytek_pcm_trigger(struct snd_pcm_substream *alsa_sub, int cmd)$/;"	f	file:
+out_n_analog	pcm.h	/^	int out_n_analog; \/* number of analog channels soundcard receives *\/$/;"	m	struct:pcm_runtime
+out_packet_size	pcm.h	/^	int out_packet_size;$/;"	m	struct:pcm_runtime
+out_urbs	pcm.h	/^	struct pcm_urb out_urbs[PCM_N_URBS];$/;"	m	struct:pcm_runtime	typeref:struct:pcm_runtime::pcm_urb
+packets	pcm.h	/^	struct usb_iso_packet_descriptor packets[PCM_N_PACKETS_PER_URB];$/;"	m	struct:pcm_urb	typeref:struct:pcm_urb::usb_iso_packet_descriptor
+panic	pcm.h	/^	bool panic; \/* if set driver won't do anymore pcm on device *\/$/;"	m	struct:pcm_runtime
+pcm	chip.h	/^	struct pcm_runtime *pcm;$/;"	m	struct:mytek_chip	typeref:struct:mytek_chip::pcm_runtime
+pcm_hw	pcm.c	/^static const struct snd_pcm_hardware pcm_hw = {$/;"	v	typeref:struct:snd_pcm_hardware	file:
+pcm_ops	pcm.c	/^static struct snd_pcm_ops pcm_ops = {$/;"	v	typeref:struct:snd_pcm_ops	file:
+pcm_runtime	pcm.h	/^struct pcm_runtime {$/;"	s
+pcm_substream	pcm.h	/^struct pcm_substream {$/;"	s
+pcm_urb	pcm.h	/^struct pcm_urb {$/;"	s
+peer	pcm.h	/^	struct pcm_urb *peer;$/;"	m	struct:pcm_urb	typeref:struct:pcm_urb::pcm_urb
+period_off	pcm.h	/^	snd_pcm_uframes_t period_off; \/* current position in current period *\/$/;"	m	struct:pcm_substream
+playback	pcm.h	/^	struct pcm_substream playback;$/;"	m	struct:pcm_runtime	typeref:struct:pcm_runtime::pcm_substream
+rate	pcm.h	/^	u8 rate; \/* one of PCM_RATE_XXX *\/$/;"	m	struct:pcm_runtime
+rates	pcm.c	/^static const int rates[] = { 44100, 48000, 88200, 96000, 176400, 192000 };$/;"	v	file:
+rates_alsaid	pcm.c	/^static const int rates_alsaid[] = {$/;"	v	file:
+rates_altsetting	control.c	/^static const int rates_altsetting[] = { 1, 1, 2, 2, 3, 3 };$/;"	v	file:
+rates_in_packet_size	pcm.c	/^static const int rates_in_packet_size[] = { 228, 228, 420, 420, 404, 404 };$/;"	v	file:
+rates_mytek_vh	control.c	/^static const u16 rates_mytek_vh[] = {0x11, 0x11, 0x10, 0x10, 0x00, 0x00};$/;"	v	file:
+rates_mytek_vl	control.c	/^static const u16 rates_mytek_vl[] = {0x00, 0x01, 0x00, 0x01, 0x00, 0x01};$/;"	v	file:
+rates_out_packet_size	pcm.c	/^static const int rates_out_packet_size[] = { 228, 228, 420, 420, 604, 604 };$/;"	v	file:
+receiver	comm.h	/^	struct urb receiver;$/;"	m	struct:comm_runtime	typeref:struct:comm_runtime::urb
+receiver_buffer	comm.h	/^	u8 *receiver_buffer;$/;"	m	struct:comm_runtime
+reg	control.c	/^	u8 reg;$/;"	m	struct:__anon3	file:
+regidx	chip.h	/^	int regidx; \/* index in module parameter arrays *\/$/;"	m	struct:mytek_chip
+serial	comm.h	/^	u8 serial;	\/* urb serial *\/$/;"	m	struct:comm_runtime
+set_channels	control.h	/^	int (*set_channels)(struct control_runtime *rt, int n_analog_out,$/;"	m	struct:control_runtime
+set_rate	control.h	/^	int (*set_rate)(struct control_runtime *rt, int rate);$/;"	m	struct:control_runtime
+shutdown	chip.h	/^	bool shutdown;$/;"	m	struct:mytek_chip
+stream_mutex	pcm.h	/^	struct mutex stream_mutex;$/;"	m	struct:pcm_runtime	typeref:struct:pcm_runtime::mutex
+stream_state	pcm.h	/^	u8 stream_state; \/* one of STREAM_XXX (pcm.c) *\/$/;"	m	struct:pcm_runtime
+stream_wait_cond	pcm.h	/^	bool stream_wait_cond;$/;"	m	struct:pcm_runtime
+stream_wait_queue	pcm.h	/^	wait_queue_head_t stream_wait_queue;$/;"	m	struct:pcm_runtime
+txt_data	firmware.c	/^	const char *txt_data;$/;"	m	struct:ihex_record	file:
+txt_length	firmware.c	/^	unsigned int txt_length;$/;"	m	struct:ihex_record	file:
+txt_offset	firmware.c	/^	unsigned int txt_offset; \/* current position in txt_data *\/$/;"	m	struct:ihex_record	file:
+type	control.c	/^	u8 type;$/;"	m	struct:__anon3	file:
+update_streaming	control.h	/^	int (*update_streaming)(struct control_runtime *rt);$/;"	m	struct:control_runtime
+usb_driver	chip.c	/^module_usb_driver(usb_driver);$/;"	v
+usb_driver	chip.c	/^static struct usb_driver usb_driver = {$/;"	v	typeref:struct:usb_driver	file:
+usb_streaming	control.h	/^	bool usb_streaming;$/;"	m	struct:control_runtime
+usbworkaround	chip.h	/^	bool usbworkaround;$/;"	m	struct:mytek_chip
+valh	control.c	/^	u8 valh;$/;"	m	struct:__anon3	file:
+vall	control.c	/^	u8 vall;$/;"	m	struct:__anon3	file:
+write16	comm.h	/^	int (*write16)(struct comm_runtime *rt, u8 request, u8 reg,$/;"	m	struct:comm_runtime
+write8	comm.h	/^	int (*write8)(struct comm_runtime *rt, u8 request, u8 reg, u8 value);$/;"	m	struct:comm_runtime

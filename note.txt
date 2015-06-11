@@ -1,0 +1,25 @@
+
+========= 2015-05-25 ==========
+1. create dts for aries and aries-mini
+2. create isp exfat led dac driver in drivers/auralic
+3. create config file for aries and aries-mini
+
+4. add eth0 reset ok
+5. add hfsplus    ok
+6. add disk start stop and diskname bind
+
+
+========= 2015-06-01 ==========
+1. add sata diskname bind
+2. add usb config0 as best config
+3. add menuconfig for diskname bind/eth0 reset/usb config
+4. add quirks.c for support more usb dac
+5. mount exfat fs ok in auralic
+6. fix mtd0 and isp chip select
+7. fix mmcblk3 to mmcblk0
+8. hfsplus journal check ok
+
+
+
+
+
