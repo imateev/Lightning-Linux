@@ -3230,7 +3230,6 @@ fec_probe(struct platform_device *pdev)
 				of_node_full_name(pdev->dev.of_node));
 	} else {
 		phy_irq = irq_of_parse_and_map(np, 0);
-		pr_info("phyirq=%d\n", phy_irq);
 		if (phy_irq <= 0)
 			phy_irq = PHY_POLL;
 	}
