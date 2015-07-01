@@ -1,0 +1,6 @@
+1. compile  iwlwifi backports modules
+2. compile  ath9k  kernel modules
+3. compile  mytek and hiface modules
+
+
+
