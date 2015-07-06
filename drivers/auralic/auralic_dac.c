@@ -129,6 +129,7 @@ static ssize_t dacproc_write(struct file *filp, const char __user *usr_buf,
     char len;
     char buff[100] = {0};
     char cmd[20];
+    unsigned int addr = 0;
     int value;
     int ret;
 
@@ -140,14 +141,15 @@ static ssize_t dacproc_write(struct file *filp, const char __user *usr_buf,
     
     buff[99] = '\0';
     
-    ret = sscanf(buff, "%s %d", cmd, &value);
+    addr = 0xff;
+    ret = sscanf(buff, "%s %d %x", cmd, &value, &addr);
     if(2 > ret)
     {
         printk("dac invalide command\n");
         goto out;
     }
     
-    printk(KERN_DEBUG"dac  cmd:%s  value:%d\n", cmd, value);
+    printk(KERN_DEBUG"dac  cmd:%s  value:%d  addr:0x%02x\n", cmd, value, addr);
     
     if(0 == strncmp(cmd, "vol_l", 5))
     {
@@ -171,6 +173,10 @@ static ssize_t dacproc_write(struct file *filp, const char __user *usr_buf,
         {
                 printk(KERN_DEBUG"invalid volume right value:%d\n", value);
         }
+    }
+    else if(0 == strncmp(cmd, "write", 5))
+    {
+        dac_write_and_verify(addr, value, RETRY_COUNT);
     }
     
 out:    
