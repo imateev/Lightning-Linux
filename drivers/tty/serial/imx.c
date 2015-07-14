@@ -1212,9 +1212,11 @@ static int imx_startup(struct uart_port *port)
 	}
 
 	/* Can we enable the DMA support? */
+	#if 0 /* disable uart dma, avoid dma overrun */
 	if (is_imx6q_uart(sport) && !uart_console(port)
 		&& !sport->dma_is_inited)
 		imx_uart_dma_init(sport);
+        #endif
 
 	if (sport->dma_is_inited) {
 		INIT_DELAYED_WORK(&sport->tsk_dma_tx, dma_tx_work);
