@@ -939,7 +939,10 @@ static void print_cpu_stall(struct rcu_state *rsp)
 	 * See Documentation/RCU/stallwarn.txt for info on how to debug
 	 * RCU CPU stall warnings.
 	 */
+	#ifdef CONFIG_LOCKDEP
 	debug_show_all_locks(); // hyf
+	#endif
+	
 	printk(KERN_ERR "INFO: %s self-detected stall on CPU", rsp->name);
 	print_cpu_stall_info_begin();
 	print_cpu_stall_info(rsp, smp_processor_id());
