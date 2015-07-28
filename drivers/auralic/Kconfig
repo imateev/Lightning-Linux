@@ -71,5 +71,9 @@ config STATIC_MMCBLK_IDX
 #	help
 #	  This option enables support for the Buttons of AURALIC.	  
 
+config AURALIC_FILELIST 
+	tristate "use filelist module to record all file's change time"
+	help
+	  This option enables support for recording all file's change time.
 
 endif # AURALIC_DRIVERS 

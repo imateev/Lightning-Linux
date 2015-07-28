@@ -22,6 +22,10 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+#ifdef CONFIG_AURALIC_FILELIST
+#include <linux/auralic_filelist.h>
+#endif
+
 typedef ssize_t (*io_fn_t)(struct file *, char __user *, size_t, loff_t *);
 typedef ssize_t (*iov_fn_t)(struct kiocb *, const struct iovec *,
 		unsigned long, loff_t);
@@ -440,6 +444,32 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 
 	ret = rw_verify_area(WRITE, file, pos, count);
 	if (ret >= 0) {
+	        #ifdef CONFIG_AURALIC_FILELIST
+	        if(true == vfs_can_access)
+	        {
+	                char buff[250] = {0};
+	                char *tmp = NULL;
+	                tmp = d_path(&file->f_path, buff, 250);
+		        if(IS_ERR(tmp))
+		                printk("filelist module get file name failed!\n");
+		        if(0 == strncmp(tmp, "/media/hd", strlen("/media/hd") - 1))
+		        {
+		                struct filelist_event_t *event = NULL;
+                                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                                if(NULL != event)
+                                {
+                                        event->len = strlen(tmp);// remove \n 
+                                        event->code = FILELIST_WRITE_BUFF;                                        
+                                        memcpy(event->buff, tmp, event->len);
+                                        spin_lock(&filelist_lock);
+                                        list_add_tail(&event->list, &filelist_event);
+                                        spin_unlock(&filelist_lock);
+                                        wake_up_process(filelist_task);
+                                }
+		        }
+	        }   
+	        #endif
+	        
 		count = ret;
 		file_start_write(file);
 		if (file->f_op->write)
