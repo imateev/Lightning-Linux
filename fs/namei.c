@@ -35,6 +35,9 @@
 #include <linux/fs_struct.h>
 #include <linux/posix_acl.h>
 #include <asm/uaccess.h>
+#ifdef CONFIG_AURALIC_FILELIST
+#include <linux/auralic_filelist.h>
+#endif
 
 #include "internal.h"
 #include "mount.h"
@@ -2607,13 +2610,20 @@ looked_up:
 static int lookup_open(struct nameidata *nd, struct path *path,
 			struct file *file,
 			const struct open_flags *op,
-			bool got_write, int *opened)
+			bool got_write, int *opened, struct filename *pathname)
 {
 	struct dentry *dir = nd->path.dentry;
 	struct inode *dir_inode = dir->d_inode;
 	struct dentry *dentry;
 	int error;
-	bool need_lookup;
+	bool need_lookup;    
+
+	#ifdef CONFIG_AURALIC_FILELIST
+    char aura_file_buf[AURALIC_NAME_LEN];
+    char aura_path_buf[AURALIC_NAME_LEN];
+    char *aura_path = NULL;
+    char *aura_file = NULL;
+    #endif
 
 	*opened &= ~FILE_CREATED;
 	dentry = lookup_dcache(&nd->last, dir, nd->flags, &need_lookup);
@@ -2659,6 +2669,20 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 			goto out_dput;
 		error = vfs_create(dir->d_inode, dentry, mode,
 				   nd->flags & LOOKUP_EXCL);
+				   
+	    #ifdef CONFIG_AURALIC_FILELIST
+	    if(0 == error)
+	    {
+	        aura_path = d_path(&nd->path, aura_path_buf, AURALIC_NAME_LEN);
+	        if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)-1))
+	        {
+    	        strncpy(aura_file_buf, pathname->name, AURALIC_NAME_LEN);
+    	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+    	        printk("create [%s/%s]\n", aura_path, aura_file);
+	        }
+	    }
+	    #endif
+	    
 		if (error)
 			goto out_dput;
 	}
@@ -2762,7 +2786,7 @@ retry_lookup:
 		 */
 	}
 	mutex_lock(&dir->d_inode->i_mutex);
-	error = lookup_open(nd, path, file, op, got_write, opened);
+	error = lookup_open(nd, path, file, op, got_write, opened, name);
 	mutex_unlock(&dir->d_inode->i_mutex);
 
 	if (error <= 0) {
@@ -3243,6 +3267,15 @@ SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, umode_t, mode)
 	struct path path;
 	int error;
 	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+	
+    #ifdef CONFIG_AURALIC_FILELIST
+    char aura_file_buf[AURALIC_NAME_LEN];
+    char aura_path_buf[AURALIC_NAME_LEN];
+    char *aura_path = NULL;
+    char *aura_file = NULL;
+    struct filename *filename;
+	struct nameidata nd;
+    #endif
 
 retry:
 	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
@@ -3259,6 +3292,21 @@ retry:
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
+
+    #ifdef CONFIG_AURALIC_FILELIST    
+    if(0 == error)
+    {
+        filename = user_path_parent(dfd, pathname, &nd, 0);
+        aura_path = d_path(&nd.path, aura_path_buf, AURALIC_NAME_LEN);
+        if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)-1))
+        {
+            strncpy(aura_file_buf, filename->name, AURALIC_NAME_LEN);
+            aura_file = auralic_get_filename_from_path(aura_file_buf);
+            printk("do_mkdir [%s/%s/]\n", aura_path, aura_file);
+        }
+    }
+	#endif
+	
 	return error;
 }
 
@@ -3335,11 +3383,25 @@ static long do_rmdir(int dfd, const char __user *pathname)
 	struct dentry *dentry;
 	struct nameidata nd;
 	unsigned int lookup_flags = 0;
+    
+    #ifdef CONFIG_AURALIC_FILELIST
+    char aura_file_buf[AURALIC_NAME_LEN];
+    char aura_path_buf[AURALIC_NAME_LEN];
+    char *aura_path = NULL;
+    char *aura_file = NULL;
+    #endif
+	
 retry:
 	name = user_path_parent(dfd, pathname, &nd, lookup_flags);
 	if (IS_ERR(name))
 		return PTR_ERR(name);
+		
+    #ifdef CONFIG_AURALIC_FILELIST
+    aura_path = d_path(&nd.path, aura_path_buf, AURALIC_NAME_LEN);
+    strncpy(aura_file_buf, name->name, AURALIC_NAME_LEN);
+    #endif
 
+    
 	switch(nd.last_type) {
 	case LAST_DOTDOT:
 		error = -ENOTEMPTY;
@@ -3370,6 +3432,18 @@ retry:
 	if (error)
 		goto exit3;
 	error = vfs_rmdir(nd.path.dentry->d_inode, dentry);
+	
+	#ifdef CONFIG_AURALIC_FILELIST
+	if(0 == error && NULL != aura_path)
+	{
+	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)-1))
+	    {
+	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+            printk("do_rmdir [%s/%s/]\n", aura_path, aura_file);
+        }
+    }
+    #endif
+    
 exit3:
 	dput(dentry);
 exit2:
@@ -3435,12 +3509,25 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 	struct dentry *dentry;
 	struct nameidata nd;
 	struct inode *inode = NULL;
-	unsigned int lookup_flags = 0;
+	unsigned int lookup_flags = 0;    
+
+	#ifdef CONFIG_AURALIC_FILELIST
+    char aura_file_buf[AURALIC_NAME_LEN];
+    char aura_path_buf[AURALIC_NAME_LEN];
+    char *aura_path = NULL;
+    char *aura_file = NULL;
+    #endif
+    
 retry:
 	name = user_path_parent(dfd, pathname, &nd, lookup_flags);
 	if (IS_ERR(name))
 		return PTR_ERR(name);
 
+    #ifdef CONFIG_AURALIC_FILELIST
+    aura_path = d_path(&nd.path, aura_path_buf, AURALIC_NAME_LEN);
+    strncpy(aura_file_buf, name->name, AURALIC_NAME_LEN);
+    #endif
+    
 	error = -EISDIR;
 	if (nd.last_type != LAST_NORM)
 		goto exit1;
@@ -3465,6 +3552,18 @@ retry:
 		if (error)
 			goto exit2;
 		error = vfs_unlink(nd.path.dentry->d_inode, dentry);
+
+		#ifdef CONFIG_AURALIC_FILELIST
+    	if(0 == error && NULL != aura_path)
+    	{
+    	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)-1))
+    	    {
+    	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+                printk("remove [%s/%s]\n", aura_path, aura_file);
+            }
+        }
+        #endif
+    
 exit2:
 		dput(dentry);
 	}
@@ -3819,6 +3918,7 @@ int vfs_rename(struct inode *old_dir, struct dentry *old_dentry,
 		error = vfs_rename_dir(old_dir,old_dentry,new_dir,new_dentry);
 	else
 		error = vfs_rename_other(old_dir,old_dentry,new_dir,new_dentry);
+	
 	if (!error)
 		fsnotify_move(old_dir, new_dir, old_name, is_dir,
 			      new_dentry->d_inode, old_dentry);
@@ -3839,13 +3939,21 @@ SYSCALL_DEFINE4(renameat, int, olddfd, const char __user *, oldname,
 	unsigned int lookup_flags = 0;
 	bool should_retry = false;
 	int error;
+	
+    #ifdef CONFIG_AURALIC_FILELIST
+    char aura_file_buf[AURALIC_NAME_LEN];
+    char aura_path_buf[AURALIC_NAME_LEN];
+    char *aura_path = NULL;
+    char *aura_file = NULL;
+    #endif
+
 retry:
 	from = user_path_parent(olddfd, oldname, &oldnd, lookup_flags);
 	if (IS_ERR(from)) {
 		error = PTR_ERR(from);
 		goto exit;
 	}
-
+    
 	to = user_path_parent(newdfd, newname, &newnd, lookup_flags);
 	if (IS_ERR(to)) {
 		error = PTR_ERR(to);
@@ -3908,8 +4016,31 @@ retry:
 				     &newnd.path, new_dentry);
 	if (error)
 		goto exit5;
+		
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 				   new_dir->d_inode, new_dentry);
+    
+    #ifdef CONFIG_AURALIC_FILELIST
+    if(0 == error)
+    {
+        aura_path = d_path(&oldnd.path, aura_path_buf, AURALIC_NAME_LEN);
+	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)-1))
+	    {
+	        strncpy(aura_file_buf, from->name, strlen(from->name));
+            aura_file = auralic_get_filename_from_path(aura_file_buf);
+            printk("rename [%s/%s] to ..\n", aura_path, aura_file);
+        }
+        
+        aura_path = d_path(&newnd.path, aura_path_buf, AURALIC_NAME_LEN);
+	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)-1))
+	    {
+	        strncpy(aura_file_buf, to->name, strlen(to->name));
+	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+	        printk("rename [%s/%s] from ..\n", aura_path, aura_file);
+	    }
+    }
+    #endif
+    
 exit5:
 	dput(new_dentry);
 exit4:

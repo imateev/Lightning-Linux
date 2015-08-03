@@ -35,6 +35,25 @@ spinlock_t filelist_lock;
 struct list_head filelist_event;
 struct task_struct *filelist_task = NULL;
 
+char * auralic_get_filename_from_path(char *path)
+{
+    char i;
+    char len = strlen(path);
+
+    for(i=len-1; i>0; i--)
+    {
+        if('/' == path[i])
+            return path+i+1;
+    }
+
+    // i==0
+    if('/' == path[i])
+        return path+i+1;
+    else
+        return path;
+}
+
+
 int filelist_process_fn(void *data)
 { 
     mm_segment_t fs; 
@@ -52,7 +71,7 @@ int filelist_process_fn(void *data)
 	printk(KERN_DEBUG"%s starting\n", __func__);
     fs = get_fs();
     set_fs(KERNEL_DS);
-    vfs_can_access = true;
+    //vfs_can_access = true;
     
 	while (!kthread_should_stop()) 
 	{	
