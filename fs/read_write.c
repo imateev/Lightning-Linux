@@ -434,6 +434,11 @@ ssize_t __kernel_write(struct file *file, const char *buf, size_t count, loff_t 
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
+	
+    #ifdef CONFIG_AURALIC_FILELIST
+    char aura_path_buf[AURALIC_NAME_LEN];
+    char *aura_path = NULL;
+    #endif
 
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EBADF;
@@ -443,33 +448,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 		return -EFAULT;
 
 	ret = rw_verify_area(WRITE, file, pos, count);
-	if (ret >= 0) {
-	        #ifdef CONFIG_AURALIC_FILELIST
-	        if(true == vfs_can_access)
-	        {
-	                char buff[250] = {0};
-	                char *tmp = NULL;
-	                tmp = d_path(&file->f_path, buff, 250);
-		        if(IS_ERR(tmp))
-		                printk("filelist module get file name failed!\n");
-		        if(0 == strncmp(tmp, "/media/hd", strlen("/media/hd") - 1))
-		        {
-		                struct filelist_event_t *event = NULL;
-                                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
-                                if(NULL != event)
-                                {
-                                        event->len = strlen(tmp);// remove \n 
-                                        event->code = FILELIST_WRITE_BUFF;                                        
-                                        memcpy(event->buff, tmp, event->len);
-                                        spin_lock(&filelist_lock);
-                                        list_add_tail(&event->list, &filelist_event);
-                                        spin_unlock(&filelist_lock);
-                                        wake_up_process(filelist_task);
-                                }
-		        }
-	        }   
-	        #endif
-	        
+	if (ret >= 0) {	        
 		count = ret;
 		file_start_write(file);
 		if (file->f_op->write)
@@ -479,6 +458,33 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 		if (ret > 0) {
 			fsnotify_modify(file);
 			add_wchar(current, ret);
+			
+            #ifdef CONFIG_AURALIC_FILELIST            
+            aura_path = d_path(&file->f_path, aura_path_buf, AURALIC_NAME_LEN);
+            if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+            {
+                struct aura_write_info * info = NULL;
+                if(FILELIST_MODIFY_DEBUG)
+    	            printk(KERN_DEBUG"modify [%s]\n", aura_path);
+
+                if(false == aura_fresh_one_info_by_filepath(aura_path))
+                {
+                    while(NULL == info)
+                    {
+                        info= aura_get_one_info(aura_path, strlen(aura_path));
+                        if(NULL != info)
+                        {
+                            aura_start_one_info(info, aura_path, strlen(aura_path));
+                            break;
+                        }
+                        else
+                        {
+                            schedule_timeout_interruptible(HZ/100);
+                        }
+                    }
+                }
+            }   
+            #endif
 		}
 		inc_syscw(current);
 		file_end_write(file);
