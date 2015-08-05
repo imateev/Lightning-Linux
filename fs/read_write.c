@@ -461,29 +461,32 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 			
             #ifdef CONFIG_AURALIC_FILELIST            
             aura_path = d_path(&file->f_path, aura_path_buf, AURALIC_NAME_LEN);
-            if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+            if(!IS_ERR(aura_path))
             {
-                struct aura_write_info * info = NULL;
-                if(FILELIST_MODIFY_DEBUG)
-    	            printk(KERN_DEBUG"modify [%s]\n", aura_path);
-
-                if(false == aura_fresh_one_info_by_filepath(aura_path))
+                if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
                 {
-                    while(NULL == info)
+                    struct aura_write_info * info = NULL;
+                    if(FILELIST_MODIFY_DEBUG)
+        	            printk(KERN_DEBUG"modify [%s]\n", aura_path);
+
+                    if(false == aura_fresh_one_info_by_filepath(aura_path))
                     {
-                        info= aura_get_one_info(aura_path, strlen(aura_path));
-                        if(NULL != info)
+                        while(NULL == info)
                         {
-                            aura_start_one_info(info, aura_path, strlen(aura_path));
-                            break;
-                        }
-                        else
-                        {
-                            schedule_timeout_interruptible(HZ/100);
+                            info= aura_get_one_info(aura_path, strlen(aura_path));
+                            if(NULL != info)
+                            {
+                                aura_start_one_info(info, aura_path, strlen(aura_path));
+                                break;
+                            }
+                            else
+                            {
+                                schedule_timeout_interruptible(HZ/100);
+                            }
                         }
                     }
-                }
-            }   
+                }   
+            }
             #endif
 		}
 		inc_syscw(current);
