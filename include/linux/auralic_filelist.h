@@ -28,6 +28,7 @@ struct aura_write_info
     struct timer_list timer;
 };
 
+extern struct kmem_cache *filelist_cache;
 extern char MATCH_PATH_STR[20];
 extern bool vfs_can_access;
 extern spinlock_t filelist_lock;

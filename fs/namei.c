@@ -2685,7 +2685,7 @@ static int lookup_open(struct nameidata *nd, struct path *path,
         	        if(FILELIST_DEBUG)
         	            printk(KERN_DEBUG"create [%s/%s]\n", aura_path, aura_file);
         	        
-                    event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                    event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_KERNEL);
                     if(NULL != event)
                     {
                         event->code = FILELIST_WRITE_BUFF;      
@@ -3326,7 +3326,7 @@ retry:
                 if(FILELIST_DEBUG)
         	            printk(KERN_DEBUG"do_mkdir [%s/%s/]\n", aura_path, aura_file);
                 
-                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_KERNEL);
                 if(NULL != event)
                 {
                     event->code = FILELIST_WRITE_BUFF;                                        
@@ -3482,7 +3482,7 @@ retry:
                 if(FILELIST_DEBUG)
         	            printk(KERN_DEBUG"do_rmdir [%s/%s/]\n", aura_path, aura_file);
                 
-                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_KERNEL);
                 if(NULL != event)
                 {
                     event->code = FILELIST_WRITE_BUFF;                                        
@@ -3630,7 +3630,7 @@ retry:
         	            printk(KERN_DEBUG"remove [%s/%s]\n", aura_path, aura_file);
                     //printk("%s  line:%d path=%s\n", __func__, __LINE__, aura_path);
 
-                    event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                    event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_KERNEL);
                     if(NULL != event)
                     {
                         event->code = FILELIST_WRITE_BUFF;      
@@ -4131,7 +4131,7 @@ retry:
                     if(FILELIST_DEBUG)
         	            printk(KERN_DEBUG"rename [%s/%s] to ..\n", aura_path, aura_file);
                 }
-                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_KERNEL);
                 if(NULL != event)
                 {
                     event->code = FILELIST_WRITE_BUFF;      
@@ -4164,7 +4164,7 @@ retry:
                     if(FILELIST_DEBUG)
         	            printk(KERN_DEBUG"rename [%s/%s] from ..\n", aura_path, aura_file);
                 }
-                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_KERNEL);
                 if(NULL != event)
                 {
                     event->code = FILELIST_WRITE_BUFF;      

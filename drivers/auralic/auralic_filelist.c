@@ -41,6 +41,9 @@ struct task_struct *filelist_task = NULL;
 spinlock_t info_lock;
 struct aura_write_info aura_info[AURA_WRITE_INFO_NUM];
 
+struct kmem_cache *filelist_cache = NULL;
+
+
 char *helpstring = "echo start     > /proc/filelist --> start writing file change list\n"
                    "echo stop      > /proc/filelist --> stop writing file change list\n"
                    "echo /media/xy > /proc/filelist --> set /media/xy as new match path\n"
@@ -119,7 +122,7 @@ void aura_info_timeout_handle(unsigned long data)
     struct filelist_event_t * event;
 
     info = (struct aura_write_info *)data;
-    event = (struct filelist_event_t *)kzalloc(sizeof(struct filelist_event_t), GFP_ATOMIC);
+    event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_ATOMIC);
     if(NULL != event)
     {
         event->code = FILELIST_WRITE_BUFF;                                        
@@ -214,7 +217,7 @@ int filelist_process_fn(void *data)
                 fp->f_op->write(fp, "\n", strlen("\n"), &fp->f_pos);
             }
         
-            kfree(event);
+            kmem_cache_free(filelist_cache, (void *)event);
             event = NULL;
             
             if(true == need_stop)
@@ -352,6 +355,15 @@ static int __init filelist_init(void)
     spin_lock_init(&filelist_lock);
     
     proc_create(FILELIST_PROC_NAME, 0755, NULL, &filelist_proc_op);
+
+    filelist_cache = kmem_cache_create("filelist_cache",
+					      sizeof(struct filelist_event_t),
+					      0, 0, NULL);
+    if(NULL == filelist_cache)
+    {
+        pr_err("create filelist cache failed!\n");
+        return -ENOMEM;
+    }
     
     filelist_task = kthread_run(filelist_process_fn, NULL, "filelist");
     if (IS_ERR(filelist_task)) 
@@ -373,6 +385,9 @@ static void __exit filelist_exit(void)
         kthread_stop(filelist_task);
             
 	remove_proc_entry(FILELIST_PROC_NAME, NULL);
+
+	if(filelist_cache)
+	    kmem_cache_destroy(filelist_cache);
 }
 
 module_init(filelist_init);
