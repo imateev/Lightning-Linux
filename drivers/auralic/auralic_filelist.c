@@ -24,7 +24,7 @@
 
 
 #define         FILELIST_PROC_NAME       "filelist"
-#define         FILELIST_NAME_TMP        "/media/mmcblk0p1/.list.bin"
+#define         FILELIST_NAME_TMP        "/media/mmcblk0p1/app/mediaServer/list.bin"
 #define         AURA_WRITE_INFO_NUM      100 
 
 char MATCH_PATH_STR[20]={"/media/hd"};
@@ -242,7 +242,7 @@ ssize_t filelist_proc_read(struct file *filp, char __user *usrbuf, size_t size, 
     char buff[200] = {0};
     
     if(0 != *offset)
-            return 0;
+        return 0;
     tmp = atomic_read(&info_count);
     if(tmp)
     {
@@ -271,7 +271,7 @@ ssize_t filelist_proc_read(struct file *filp, char __user *usrbuf, size_t size, 
         len += sprintf(buff+len, "process: %s\n", "running");
     }
 
-    len += sprintf(buff+len, "match = [%s]\n", MATCH_PATH_STR);
+    len += sprintf(buff+len, "path = [%s]\n", MATCH_PATH_STR);
     
     *offset = len;
     

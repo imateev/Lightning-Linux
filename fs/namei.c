@@ -34,6 +34,7 @@
 #include <linux/device_cgroup.h>
 #include <linux/fs_struct.h>
 #include <linux/posix_acl.h>
+#include <linux/delay.h>
 #include <asm/uaccess.h>
 #ifdef CONFIG_AURALIC_FILELIST
 #include <linux/auralic_filelist.h>
@@ -2674,24 +2675,27 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 	    if(0 == error)
 	    {
 	        aura_path = d_path(&nd->path, aura_path_buf, AURALIC_NAME_LEN);
-	        if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+	        if(!IS_ERR(aura_path))
 	        {
-	            struct filelist_event_t * event;
-    	        strncpy(aura_file_buf, pathname->name, AURALIC_NAME_LEN);
-    	        aura_file = auralic_get_filename_from_path(aura_file_buf);
-    	        if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"create [%s/%s]\n", aura_path, aura_file);
-    	        
-                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
-                if(NULL != event)
-                {
-                    event->code = FILELIST_WRITE_BUFF;      
-                    event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
-                    spin_lock(&filelist_lock);
-                    list_add_tail(&event->list, &filelist_event);
-                    spin_unlock(&filelist_lock);
-                    wake_up_process(filelist_task);
-                }
+    	        if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+    	        {
+    	            struct filelist_event_t * event;
+        	        strncpy(aura_file_buf, pathname->name, AURALIC_NAME_LEN);
+        	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+        	        if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"create [%s/%s]\n", aura_path, aura_file);
+        	        
+                    event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                    if(NULL != event)
+                    {
+                        event->code = FILELIST_WRITE_BUFF;      
+                        event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
+                        spin_lock(&filelist_lock);
+                        list_add_tail(&event->list, &filelist_event);
+                        spin_unlock(&filelist_lock);
+                        wake_up_process(filelist_task);
+                    }
+    	        }
 	        }
 	    }
 	    #endif
@@ -3311,24 +3315,27 @@ retry:
     {
         filename = user_path_parent(dfd, pathname, &nd, 0);
         aura_path = d_path(&nd.path, aura_path_buf, AURALIC_NAME_LEN);
-        if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)) && true == vfs_can_access)
+        if(!IS_ERR(aura_path))
         {
-            struct filelist_event_t *event;
-            
-            strncpy(aura_file_buf, filename->name, AURALIC_NAME_LEN);
-            aura_file = auralic_get_filename_from_path(aura_file_buf);
-            if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"do_mkdir [%s/%s/]\n", aura_path, aura_file);
-            
-            event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
-            if(NULL != event)
+            if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)) && true == vfs_can_access)
             {
-                event->code = FILELIST_WRITE_BUFF;                                        
-                event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
-                spin_lock(&filelist_lock);
-                list_add_tail(&event->list, &filelist_event);
-                spin_unlock(&filelist_lock);
-                wake_up_process(filelist_task);
+                struct filelist_event_t *event;
+                
+                strncpy(aura_file_buf, filename->name, AURALIC_NAME_LEN);
+                aura_file = auralic_get_filename_from_path(aura_file_buf);
+                if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"do_mkdir [%s/%s/]\n", aura_path, aura_file);
+                
+                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                if(NULL != event)
+                {
+                    event->code = FILELIST_WRITE_BUFF;                                        
+                    event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
+                    spin_lock(&filelist_lock);
+                    list_add_tail(&event->list, &filelist_event);
+                    spin_unlock(&filelist_lock);
+                    wake_up_process(filelist_task);
+                }
             }
         }
     }
@@ -3425,7 +3432,10 @@ retry:
 		
     #ifdef CONFIG_AURALIC_FILELIST
     aura_path = d_path(&nd.path, aura_path_buf, AURALIC_NAME_LEN);
-    strncpy(aura_file_buf, name->name, AURALIC_NAME_LEN);
+    if(!IS_ERR(aura_path))
+    {
+        strncpy(aura_file_buf, name->name, AURALIC_NAME_LEN);
+    }
     #endif
 
     
@@ -3461,24 +3471,27 @@ retry:
 	error = vfs_rmdir(nd.path.dentry->d_inode, dentry);
 	
 	#ifdef CONFIG_AURALIC_FILELIST
-	if(0 == error && NULL != aura_path)
-	{
-	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)) && true == vfs_can_access)
-	    {
-            struct filelist_event_t *event = NULL;
-	        aura_file = auralic_get_filename_from_path(aura_file_buf);
-            if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"do_rmdir [%s/%s/]\n", aura_path, aura_file);
-            
-            event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
-            if(NULL != event)
-            {
-                event->code = FILELIST_WRITE_BUFF;                                        
-                event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
-                spin_lock(&filelist_lock);
-                list_add_tail(&event->list, &filelist_event);
-                spin_unlock(&filelist_lock);
-                wake_up_process(filelist_task);
+	if(!IS_ERR(aura_path))
+    {
+        if(0 == error && NULL != aura_path)
+    	{
+    	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)) && true == vfs_can_access)
+    	    {
+                struct filelist_event_t *event = NULL;
+    	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+                if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"do_rmdir [%s/%s/]\n", aura_path, aura_file);
+                
+                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                if(NULL != event)
+                {
+                    event->code = FILELIST_WRITE_BUFF;                                        
+                    event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
+                    spin_lock(&filelist_lock);
+                    list_add_tail(&event->list, &filelist_event);
+                    spin_unlock(&filelist_lock);
+                    wake_up_process(filelist_task);
+                }
             }
         }
     }
@@ -3558,6 +3571,8 @@ static long do_unlinkat(int dfd, const char __user *pathname)
     char *aura_file = NULL;
     #endif
     
+    //printk("%s  line:%d\n", __func__, __LINE__);
+    //msleep(100);
 retry:
 	name = user_path_parent(dfd, pathname, &nd, lookup_flags);
 	if (IS_ERR(name))
@@ -3565,7 +3580,12 @@ retry:
 
     #ifdef CONFIG_AURALIC_FILELIST
     aura_path = d_path(&nd.path, aura_path_buf, AURALIC_NAME_LEN);
-    strncpy(aura_file_buf, name->name, AURALIC_NAME_LEN);
+    if(!IS_ERR(aura_path))
+    {
+        strncpy(aura_file_buf, name->name, AURALIC_NAME_LEN);
+    }
+    //printk("%s  line:%d path=%s\n", __func__, __LINE__, aura_path);
+    //msleep(100);
     #endif
     
 	error = -EISDIR;
@@ -3594,27 +3614,37 @@ retry:
 		error = vfs_unlink(nd.path.dentry->d_inode, dentry);
 
 		#ifdef CONFIG_AURALIC_FILELIST
-    	if(0 == error && NULL != aura_path)
-    	{
-    	    if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
-    	    {
-    	        struct filelist_event_t * event;
-    	        
-    	        aura_file = auralic_get_filename_from_path(aura_file_buf);
-                if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"remove [%s/%s]\n", aura_path, aura_file);
+        //printk("%s  line:%d path=%s\n", __func__, __LINE__, aura_path);
+        //msleep(100);
+    	if(!IS_ERR(aura_path))
+        {
+            if(0 == error && NULL != aura_path)
+        	{
+                //printk("%s  line:%d path=%s\n", __func__, __LINE__, aura_path);
+        	    if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+        	    {
+        	        struct filelist_event_t * event;
+        	        
+        	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+                    if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"remove [%s/%s]\n", aura_path, aura_file);
+                    //printk("%s  line:%d path=%s\n", __func__, __LINE__, aura_path);
 
-                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
-                if(NULL != event)
-                {
-                    event->code = FILELIST_WRITE_BUFF;      
-                    event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
-                    spin_lock(&filelist_lock);
-                    list_add_tail(&event->list, &filelist_event);
-                    spin_unlock(&filelist_lock);
-                    wake_up_process(filelist_task);
+                    event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                    if(NULL != event)
+                    {
+                        event->code = FILELIST_WRITE_BUFF;      
+                        event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
+                        spin_lock(&filelist_lock);
+                        list_add_tail(&event->list, &filelist_event);
+                        spin_unlock(&filelist_lock);
+                        wake_up_process(filelist_task);
+                    }
+                    //printk("%s  line:%d path=%s\n", __func__, __LINE__, aura_path);
                 }
             }
+            //printk("%s  line:%d path=%s\n", __func__, __LINE__, aura_path);
+            msleep(10);
         }
         #endif
     
@@ -4085,63 +4115,69 @@ retry:
         struct filelist_event_t * event;
         
         aura_path = d_path(&oldnd.path, aura_path_buf, AURALIC_NAME_LEN);
-	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
-	    {
-	        strncpy(aura_file_buf, from->name, strlen(from->name));
-            aura_file = auralic_get_filename_from_path(aura_file_buf);
-            if(aura_is_dir)
-            {
-                if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"rename [%s/%s/] to ..\n", aura_path, aura_file);
-            }
-            else
-            {
-                if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"rename [%s/%s] to ..\n", aura_path, aura_file);
-            }
-            event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
-            if(NULL != event)
-            {
-                event->code = FILELIST_WRITE_BUFF;      
+	    if(!IS_ERR(aura_path))
+        {
+            if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+    	    {
+    	        strncpy(aura_file_buf, from->name, AURALIC_NAME_LEN);
+                aura_file = auralic_get_filename_from_path(aura_file_buf);
                 if(aura_is_dir)
-                    event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
+                {
+                    if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"rename [%s/%s/] to ..\n", aura_path, aura_file);
+                }
                 else
-                    event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
-                spin_lock(&filelist_lock);
-                list_add_tail(&event->list, &filelist_event);
-                spin_unlock(&filelist_lock);
-                wake_up_process(filelist_task);
+                {
+                    if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"rename [%s/%s] to ..\n", aura_path, aura_file);
+                }
+                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                if(NULL != event)
+                {
+                    event->code = FILELIST_WRITE_BUFF;      
+                    if(aura_is_dir)
+                        event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
+                    else
+                        event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
+                    spin_lock(&filelist_lock);
+                    list_add_tail(&event->list, &filelist_event);
+                    spin_unlock(&filelist_lock);
+                    wake_up_process(filelist_task);
+                }
             }
         }
         
         aura_path = d_path(&newnd.path, aura_path_buf, AURALIC_NAME_LEN);
-	    if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
-	    {
-	        strncpy(aura_file_buf, to->name, strlen(to->name));
-	        aura_file = auralic_get_filename_from_path(aura_file_buf);
-	        if(aura_is_dir)
-	        {
-	            if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"rename [%s/%s/] from ..\n", aura_path, aura_file);
-            }
-            else
-            {
-                if(FILELIST_DEBUG)
-    	            printk(KERN_DEBUG"rename [%s/%s] from ..\n", aura_path, aura_file);
-            }
-            event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
-            if(NULL != event)
-            {
-                event->code = FILELIST_WRITE_BUFF;      
-                if(aura_is_dir)
-                    event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
+	    if(!IS_ERR(aura_path))
+        {
+            if(0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+    	    {
+    	        strncpy(aura_file_buf, to->name, AURALIC_NAME_LEN);
+    	        aura_file = auralic_get_filename_from_path(aura_file_buf);
+    	        if(aura_is_dir)
+    	        {
+    	            if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"rename [%s/%s/] from ..\n", aura_path, aura_file);
+                }
                 else
-                    event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
-                spin_lock(&filelist_lock);
-                list_add_tail(&event->list, &filelist_event);
-                spin_unlock(&filelist_lock);
-                wake_up_process(filelist_task);
-            }
+                {
+                    if(FILELIST_DEBUG)
+        	            printk(KERN_DEBUG"rename [%s/%s] from ..\n", aura_path, aura_file);
+                }
+                event = (struct filelist_event_t *)kmalloc(sizeof(struct filelist_event_t), GFP_KERNEL);
+                if(NULL != event)
+                {
+                    event->code = FILELIST_WRITE_BUFF;      
+                    if(aura_is_dir)
+                        event->len = sprintf(event->buff, "%s/%s/", aura_path, aura_file);
+                    else
+                        event->len = sprintf(event->buff, "%s/%s", aura_path, aura_file);
+                    spin_lock(&filelist_lock);
+                    list_add_tail(&event->list, &filelist_event);
+                    spin_unlock(&filelist_lock);
+                    wake_up_process(filelist_task);
+                }
+    	    }
 	    }
     }
     #endif
