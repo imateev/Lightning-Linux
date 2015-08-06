@@ -19,13 +19,16 @@
 #include <linux/delay.h>
 #include <linux/kthread.h>
 #include <linux/spinlock.h>
+#include <linux/mm.h>
 
 #include <linux/auralic_filelist.h>
 
 
 #define         FILELIST_PROC_NAME       "filelist"
 #define         FILELIST_NAME_TMP        "/media/mmcblk0p1/app/mediaServer/list.bin"
-#define         AURA_WRITE_INFO_NUM      100 
+#define         AURA_WRITE_INFO_NUM      50 
+#define         AURA_WRITE_INFO_NUM_TMP  50 
+#define         AURA_WRITE_INFO_NUM_WRITE  50 
 
 char MATCH_PATH_STR[20]={"/media/hd"};
 bool has_newlist = false;
@@ -39,7 +42,12 @@ struct list_head filelist_event;
 struct task_struct *filelist_task = NULL;
 
 spinlock_t info_lock;
+spinlock_t info_lock_tmp;
+spinlock_t info_lock_write;
+
 struct aura_write_info aura_info[AURA_WRITE_INFO_NUM];
+struct aura_write_info aura_info_tmp[AURA_WRITE_INFO_NUM_TMP];
+struct aura_write_info aura_info_write[AURA_WRITE_INFO_NUM_WRITE];
 
 struct kmem_cache *filelist_cache = NULL;
 
@@ -51,33 +59,91 @@ char *helpstring = "echo start     > /proc/filelist --> start writing file chang
 
 
 
-void init_aura_info(void)
+bool init_aura_info(void)
 {
     int i;
+    struct page *page = NULL;
 
     atomic_set(&info_count, 0);
     spin_lock_init(&info_lock);
+    spin_lock_init(&info_lock_tmp);
+    spin_lock_init(&info_lock_write);
+    
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
-        aura_info[i].is_used = false;
+        aura_info[i].path = NULL;
+        aura_info[i].stat = INFO_IDLE;
         init_timer(&aura_info[i].timer);
+        page = alloc_page(GFP_KERNEL);
+        if(NULL == page)
+        {
+            printk("filelist alloc pages failed!\n");
+            return false;
+        }
+
+        aura_info[i].path = NULL;
+        aura_info[i].buff = page_address(page);
+        if(NULL == aura_info[i].buff)
+        {
+            printk("filelist address page failed!\n");
+            return false;
+        }
     }
+
+    for(i=0; i<AURA_WRITE_INFO_NUM_TMP; i++)
+    {
+        page = alloc_page(GFP_KERNEL);
+        if(NULL == page)
+        {
+            printk("filelist alloc pages tmp failed!\n");
+            return false;
+        }
+
+        aura_info_tmp[i].stat = INFO_IDLE;
+        aura_info_tmp[i].path = NULL;
+        aura_info_tmp[i].buff = page_address(page);
+        if(NULL == aura_info_tmp[i].buff)
+        {
+            printk("filelist address page tmp failed!\n");
+            return false;
+        }
+    }
+    
+    for(i=0; i<AURA_WRITE_INFO_NUM_WRITE; i++)
+    {
+        page = alloc_page(GFP_KERNEL);
+        if(NULL == page)
+        {
+            printk("filelist alloc pages write failed!\n");
+            return false;
+        }
+
+        aura_info_write[i].stat = INFO_IDLE;
+        aura_info_write[i].path = NULL;
+        aura_info_write[i].buff = page_address(page);
+        if(NULL == aura_info_write[i].buff)
+        {
+            printk("filelist address page write failed!\n");
+            return false;
+        }
+    }
+
+    return true;
 }
 
-struct aura_write_info *aura_get_one_info(char * path, char len)
+struct aura_write_info *aura_get_one_info(void)
 {
     int i;    
-    char lentmp = len < AURALIC_NAME_LEN ? len : AURALIC_NAME_LEN;
-
+    
     spin_lock(&info_lock);
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
-        if(false == aura_info[i].is_used)
+        if(INFO_IDLE == aura_info[i].stat)
         {
-            aura_info[i].is_used = true;
-            aura_info[i].len = lentmp;
-            memcpy(aura_info[i].buff, path, lentmp);
+            aura_info[i].stat = INFO_USED_OTHER;
             spin_unlock(&info_lock);
+            aura_info[i].isdir = false;
+            aura_info[i].iswrite = false;
             atomic_inc(&info_count);
             return &aura_info[i];
         }
@@ -87,28 +153,94 @@ struct aura_write_info *aura_get_one_info(char * path, char len)
     return NULL;
 }
 
-void aura_put_one_info(struct aura_write_info * info)
+struct aura_write_info *aura_get_one_info_tmp(void)
 {
-     info->is_used = false;
+    int i;    
+    
+    spin_lock(&info_lock_tmp);
+    for(i=0; i<AURA_WRITE_INFO_NUM_TMP; i++)
+    {
+        if(INFO_IDLE == aura_info_tmp[i].stat)
+        {
+            aura_info_tmp[i].stat = INFO_USED_OTHER;
+            spin_unlock(&info_lock_tmp);
+            return &aura_info_tmp[i];
+        }
+    }
+    spin_unlock(&info_lock_tmp);
+    
+    return NULL;
+}
+
+struct aura_write_info *aura_get_one_info_write(void)
+{
+    int i;    
+    
+    spin_lock(&info_lock_write);
+    for(i=0; i<AURA_WRITE_INFO_NUM_WRITE; i++)
+    {
+        if(INFO_IDLE == aura_info_write[i].stat)
+        {
+            aura_info_write[i].stat = INFO_USED_OTHER;
+            spin_unlock(&info_lock_write);
+            return &aura_info_write[i];
+        }
+    }
+    spin_unlock(&info_lock_write);
+    
+    return NULL;
 }
 
 
-bool aura_fresh_one_info_by_filepath(char *path)
+void aura_put_one_info(struct aura_write_info * info)
+{
+    spin_lock(&info_lock);
+    info->path = NULL;
+    memset(info->buff, 0 , PATH_MAX);
+    memset(info->file, 0 , NAME_MAX);
+    info->stat = INFO_IDLE;
+    spin_unlock(&info_lock);
+    
+    atomic_dec(&info_count);
+}
+
+void aura_put_one_info_tmp(struct aura_write_info * info)
+{
+    spin_lock(&info_lock_tmp);
+    info->path = NULL;
+    memset(info->buff, 0 , PATH_MAX);
+    memset(info->file, 0 , NAME_MAX);
+    info->stat = INFO_IDLE;
+    spin_unlock(&info_lock_tmp);
+}
+
+void aura_put_one_info_write(struct aura_write_info * info)
+{
+    spin_lock(&info_lock_write);
+    info->path = NULL;
+    memset(info->buff, 0 , PATH_MAX);
+    memset(info->file, 0 , NAME_MAX);
+    info->stat = INFO_IDLE;
+    spin_unlock(&info_lock_write);
+}
+
+
+bool aura_fresh_one_info_by_filepath(struct aura_write_info * info)
 {
     int i;
+    int offset = (int)((unsigned long)info->path - (unsigned long)info->buff);
     
     spin_lock(&info_lock);
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
-        if(true == aura_info[i].is_used)
+        if(INFO_USED_TIMER == aura_info[i].stat)
         {
-            if(0 == strncmp(path, aura_info[i].buff, AURALIC_NAME_LEN))
+            if(0 == strncmp(info->path, aura_info[i].path, PATH_MAX-offset))
             {
                 mod_timer(&aura_info[i].timer, jiffies + HZ);
                 spin_unlock(&info_lock);
                 return true;
             }
-            //printk("not match: path=[%s] buff=[%s]\n", path, aura_info[i].buff);
         }
     }
     spin_unlock(&info_lock);
@@ -119,33 +251,45 @@ bool aura_fresh_one_info_by_filepath(char *path)
 void aura_info_timeout_handle(unsigned long data)
 {
     struct aura_write_info * info;
-    struct filelist_event_t * event;
-
     info = (struct aura_write_info *)data;
-    event = (struct filelist_event_t *)kmem_cache_alloc(filelist_cache, GFP_ATOMIC);
-    if(NULL != event)
-    {
-        event->code = FILELIST_WRITE_BUFF;                                        
-        event->len = info->len;
-        memcpy(event->buff, info->buff, info->len);
-        spin_lock(&filelist_lock);
-        list_add_tail(&event->list, &filelist_event);
-        spin_unlock(&filelist_lock);
-        wake_up_process(filelist_task);
-    }
-    memset(info->buff, 0, AURALIC_NAME_LEN);
-    atomic_dec(&info_count);
-    info->is_used = false;
+    spin_lock(&filelist_lock);
+    list_add_tail(&info->list, &filelist_event);
+    spin_unlock(&filelist_lock);
+    wake_up_process(filelist_task);
 }
 
-
-
-void aura_start_one_info(struct aura_write_info * info, char *path, char len)
+void aura_start_one_info(struct aura_write_info * info)
 {
     info->timer.expires = jiffies + HZ;
 	info->timer.data = (unsigned long)info;
 	info->timer.function = aura_info_timeout_handle;
+	info->stat = INFO_USED_TIMER;
 	add_timer(&info->timer);
+}
+
+bool aura_get_filename_to_buff(const char *name, char *buff, int bufflen)
+{
+    int i, idx=0;
+    int len = strlen(name);
+
+    for(i=len-1; i>0; i--)
+    {
+        if('/' == name[i])
+        {
+            break;
+        }
+    }
+
+    if('/' == name[i])
+        idx = i+1;
+    else
+        idx = i;
+        
+    if(bufflen < len-idx)
+        return false;
+
+    memcpy(buff, name+idx, len-idx);
+    return true;
 }
 
 
@@ -172,7 +316,7 @@ int filelist_process_fn(void *data)
 { 
     mm_segment_t fs; 
     struct file *fp = NULL;
-    struct filelist_event_t *event = NULL;
+    struct aura_write_info *info;
 
 	msleep(30000);// wait for mmcblk mount	
     fp =filp_open(FILELIST_NAME_TMP, O_RDWR | O_CREAT, 0644);
@@ -205,21 +349,23 @@ int filelist_process_fn(void *data)
         {
             __set_current_state(TASK_RUNNING);
             spin_lock(&filelist_lock);
-            event = list_entry(filelist_event.next, struct filelist_event_t, list);
-            list_del(&event->list);
+            info = list_entry(filelist_event.next, struct aura_write_info, list);
+            list_del(&info->list);
             spin_unlock(&filelist_lock);
 
-            if(FILELIST_WRITE_BUFF == event->code)// write record buff to .list.bin
-            {        
-                has_newlist = true;
-                fp->f_op->llseek(fp, 0, SEEK_END);
-                fp->f_op->write(fp, event->buff, event->len, &fp->f_pos);
-                fp->f_op->write(fp, "\n", strlen("\n"), &fp->f_pos);
+            has_newlist = true;
+            fp->f_op->llseek(fp, 0, SEEK_END);
+            fp->f_op->write(fp, info->path, strlen(info->path), &fp->f_pos);
+            if(false == info->iswrite)
+            {
+                fp->f_op->write(fp, "/", 1, &fp->f_pos);
+                fp->f_op->write(fp, info->file, strlen(info->file), &fp->f_pos);
+                if(true == info->isdir)
+                    fp->f_op->write(fp, "/", 1, &fp->f_pos);
             }
-        
-            kmem_cache_free(filelist_cache, (void *)event);
-            event = NULL;
-            
+            fp->f_op->write(fp, "\n", strlen("\n"), &fp->f_pos);
+
+            aura_put_one_info(info);
             if(true == need_stop)
                 break;
         }
@@ -351,17 +497,14 @@ static int __init filelist_init(void)
 {    
     printk(KERN_DEBUG"enter auralic filelist module!\n");
     
-    INIT_LIST_HEAD(&filelist_event);
     spin_lock_init(&filelist_lock);
+    INIT_LIST_HEAD(&filelist_event);
     
     proc_create(FILELIST_PROC_NAME, 0755, NULL, &filelist_proc_op);
 
-    filelist_cache = kmem_cache_create("filelist_cache",
-					      sizeof(struct filelist_event_t),
-					      0, 0, NULL);
-    if(NULL == filelist_cache)
+    if(false == init_aura_info())
     {
-        pr_err("create filelist cache failed!\n");
+        pr_err("filelist init aura_info failed!\n");
         return -ENOMEM;
     }
     
@@ -372,13 +515,13 @@ static int __init filelist_init(void)
         return -ENOMEM;
     }
     
-    init_aura_info();
-    
     return 0;
 }
 
 static void __exit filelist_exit(void)
 {
+    int i;
+    
     printk(KERN_DEBUG"exit auralic filelist module!\n");
     
     if (filelist_task)
@@ -386,8 +529,27 @@ static void __exit filelist_exit(void)
             
 	remove_proc_entry(FILELIST_PROC_NAME, NULL);
 
-	if(filelist_cache)
-	    kmem_cache_destroy(filelist_cache);
+	
+    for(i=0; i<AURA_WRITE_INFO_NUM; i++)
+    {
+        if(aura_info[i].buff)
+            free_page((unsigned long)aura_info[i].path);
+        aura_info[i].buff = NULL;
+    }
+    
+    for(i=0; i<AURA_WRITE_INFO_NUM_TMP; i++)
+    {
+        if(aura_info_tmp[i].buff)
+            free_page((unsigned long)aura_info_tmp[i].path);
+        aura_info_tmp[i].buff = NULL;
+    }
+    
+    for(i=0; i<AURA_WRITE_INFO_NUM_WRITE; i++)
+    {
+        if(aura_info_write[i].buff)
+            free_page((unsigned long)aura_info_write[i].buff);
+        aura_info_write[i].buff = NULL;
+    }
 }
 
 module_init(filelist_init);

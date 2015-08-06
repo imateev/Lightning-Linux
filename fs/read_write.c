@@ -431,13 +431,36 @@ ssize_t __kernel_write(struct file *file, const char *buf, size_t count, loff_t 
 	return ret;
 }
 
+bool aura_check_path_mache_write(struct path *path)
+{
+    bool ret = false;
+    struct aura_write_info *info = NULL;
+    
+    while(NULL == info)
+    {
+        info = aura_get_one_info_write();
+        if(NULL == info)
+            schedule_timeout_interruptible(HZ/100);
+    }
+    
+    info->path = d_path(path, info->buff, PATH_MAX);
+    if(!IS_ERR(info->path))
+    {
+        if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+            ret = true;
+    }
+
+    aura_put_one_info_write(info);
+
+    return ret;
+}
+
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
 	
     #ifdef CONFIG_AURALIC_FILELIST
-    char aura_path_buf[AURALIC_NAME_LEN];
-    char *aura_path = NULL;
+    struct aura_write_info *info = NULL;
     #endif
 
 	if (!(file->f_mode & FMODE_WRITE))
@@ -459,33 +482,35 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 			fsnotify_modify(file);
 			add_wchar(current, ret);
 			
-            #ifdef CONFIG_AURALIC_FILELIST            
-            aura_path = d_path(&file->f_path, aura_path_buf, AURALIC_NAME_LEN);
-            if(!IS_ERR(aura_path))
+            #ifdef CONFIG_AURALIC_FILELIST      
+            if(true == vfs_can_access)
             {
-                if(true == vfs_can_access && 0 == strncmp(aura_path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+                if(true == aura_check_path_mache_write(&file->f_path))
                 {
-                    struct aura_write_info * info = NULL;
-                    if(FILELIST_MODIFY_DEBUG)
-        	            printk(KERN_DEBUG"modify [%s]\n", aura_path);
-
-                    if(false == aura_fresh_one_info_by_filepath(aura_path))
+                    while(NULL == info)
                     {
-                        while(NULL == info)
+                        info = aura_get_one_info();
+                        if(NULL == info)
+                            schedule_timeout_interruptible(HZ/100);
+                    }
+                    info->path = d_path(&file->f_path, info->buff, PATH_MAX);
+                    if(!IS_ERR(info->path))
+                    {
+                        info->iswrite = true;
+                        if(false == aura_fresh_one_info_by_filepath(info))
                         {
-                            info= aura_get_one_info(aura_path, strlen(aura_path));
-                            if(NULL != info)
-                            {
-                                aura_start_one_info(info, aura_path, strlen(aura_path));
-                                break;
-                            }
-                            else
-                            {
-                                schedule_timeout_interruptible(HZ/100);
-                            }
+                            aura_start_one_info(info);
+                        } 
+                        else
+                        {
+                            aura_put_one_info(info);
                         }
                     }
-                }   
+                    else
+                    {
+                        aura_put_one_info(info);
+                    }
+                }
             }
             #endif
 		}
