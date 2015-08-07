@@ -3509,7 +3509,8 @@ retry:
         }
         else
         {
-            aura_put_one_info_tmp(info);
+            aura_put_one_info(info);
+            info = NULL;
         }
     }
     #endif
@@ -4167,11 +4168,13 @@ retry:
                 else
                 {
                     aura_put_one_info(info_old);
+                    info_old = NULL;
                 }
             }
             else
             {
                 aura_put_one_info(info_old);
+                info_old = NULL;
             }
         }
 
@@ -4209,11 +4212,13 @@ retry:
                 else
                 {
                     aura_put_one_info(info_new);
+                    info_new = NULL;
                 }
             }
             else
             {
                 aura_put_one_info(info_new);
+                info_new = NULL;
             }
         }
     }

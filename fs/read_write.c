@@ -504,11 +504,13 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
                         else
                         {
                             aura_put_one_info(info);
+                            info = NULL;
                         }
                     }
                     else
                     {
                         aura_put_one_info(info);
+                        info = NULL;
                     }
                 }
             }

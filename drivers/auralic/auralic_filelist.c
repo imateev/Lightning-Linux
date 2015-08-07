@@ -194,6 +194,9 @@ struct aura_write_info *aura_get_one_info_write(void)
 
 void aura_put_one_info(struct aura_write_info * info)
 {
+    if(NULL == info)
+        return;
+        
     spin_lock(&info_lock);
     info->path = NULL;
     memset(info->buff, 0 , PATH_MAX);
@@ -206,6 +209,8 @@ void aura_put_one_info(struct aura_write_info * info)
 
 void aura_put_one_info_tmp(struct aura_write_info * info)
 {
+    if(NULL == info)
+        return;
     spin_lock(&info_lock_tmp);
     info->path = NULL;
     memset(info->buff, 0 , PATH_MAX);
@@ -216,6 +221,8 @@ void aura_put_one_info_tmp(struct aura_write_info * info)
 
 void aura_put_one_info_write(struct aura_write_info * info)
 {
+    if(NULL == info)
+        return;
     spin_lock(&info_lock_write);
     info->path = NULL;
     memset(info->buff, 0 , PATH_MAX);
@@ -228,7 +235,12 @@ void aura_put_one_info_write(struct aura_write_info * info)
 bool aura_fresh_one_info_by_filepath(struct aura_write_info * info)
 {
     int i;
-    int offset = (int)((unsigned long)info->path - (unsigned long)info->buff);
+    int offset;
+
+    if(NULL == info || NULL == info->path)
+        return false;
+
+    offset = (int)((unsigned long)info->path - (unsigned long)info->buff);
     
     spin_lock(&info_lock);
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
@@ -252,6 +264,7 @@ void aura_info_timeout_handle(unsigned long data)
 {
     struct aura_write_info * info;
     info = (struct aura_write_info *)data;
+    
     spin_lock(&filelist_lock);
     list_add_tail(&info->list, &filelist_event);
     spin_unlock(&filelist_lock);
@@ -311,6 +324,20 @@ char * auralic_get_filename_from_path(char *path)
         return path;
 }
 
+size_t aura_strlen(const char *s)
+{
+	const char *sc;
+
+    if(NULL == s)
+    {
+        printk("aura_strlen: null string pointer!\n");
+        return 0;
+    }
+        
+	for (sc = s; *sc != '\0'; ++sc)
+		/* nothing */;
+	return sc - s;
+}
 
 int filelist_process_fn(void *data)
 { 
@@ -355,17 +382,21 @@ int filelist_process_fn(void *data)
 
             has_newlist = true;
             fp->f_op->llseek(fp, 0, SEEK_END);
-            fp->f_op->write(fp, info->path, strlen(info->path), &fp->f_pos);
-            if(false == info->iswrite)
+            if(NULL != info->path && !IS_ERR(info->path))
             {
-                fp->f_op->write(fp, "/", 1, &fp->f_pos);
-                fp->f_op->write(fp, info->file, strlen(info->file), &fp->f_pos);
-                if(true == info->isdir)
+                fp->f_op->write(fp, info->path, aura_strlen(info->path), &fp->f_pos);
+                if(false == info->iswrite)
+                {
                     fp->f_op->write(fp, "/", 1, &fp->f_pos);
+                    fp->f_op->write(fp, info->file, aura_strlen(info->file), &fp->f_pos);
+                    if(true == info->isdir)
+                        fp->f_op->write(fp, "/", 1, &fp->f_pos);
+                }
             }
             fp->f_op->write(fp, "\n", strlen("\n"), &fp->f_pos);
 
             aura_put_one_info(info);
+            info = NULL;
             if(true == need_stop)
                 break;
         }
