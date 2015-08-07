@@ -431,6 +431,7 @@ ssize_t __kernel_write(struct file *file, const char *buf, size_t count, loff_t 
 	return ret;
 }
 
+#ifdef CONFIG_AURALIC_FILELIST
 bool aura_check_path_mache_write(struct path *path)
 {
     bool ret = false;
@@ -454,6 +455,7 @@ bool aura_check_path_mache_write(struct path *path)
 
     return ret;
 }
+#endif
 
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
