@@ -27,7 +27,7 @@ struct aura_write_info
 
 extern char MATCH_PATH_STR[20];
 extern bool vfs_can_access;
-extern spinlock_t filelist_lock;
+extern raw_spinlock_t filelist_lock;
 extern struct list_head filelist_event;   
 extern struct task_struct *filelist_task;  
 extern bool aura_get_filename_to_buff(const char *name, char *buff, int bufflen);

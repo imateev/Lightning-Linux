@@ -489,6 +489,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
             {
                 if(true == aura_check_path_mache_write(&file->f_path))
                 {
+                    info = NULL;
                     while(NULL == info)
                     {
                         info = aura_get_one_info();
@@ -502,6 +503,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
                         if(false == aura_fresh_one_info_by_filepath(info))
                         {
                             aura_start_one_info(info);
+                            info = NULL;
                         } 
                         else
                         {
@@ -513,6 +515,7 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
                     {
                         aura_put_one_info(info);
                         info = NULL;
+                        printk(KERN_DEBUG"%s  line:%d invalid info->path\n", __func__, __LINE__);
                     }
                 }
             }

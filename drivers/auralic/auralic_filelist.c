@@ -37,13 +37,13 @@ bool need_stop = false; // need stop by shell cmd: echo stop > /proc/filelist
 bool vfs_can_access = false;
 atomic_t info_count;
 
-spinlock_t filelist_lock;
+raw_spinlock_t filelist_lock;
 struct list_head filelist_event;
 struct task_struct *filelist_task = NULL;
 
-spinlock_t info_lock;
-spinlock_t info_lock_tmp;
-spinlock_t info_lock_write;
+raw_spinlock_t info_lock;
+raw_spinlock_t info_lock_tmp;
+raw_spinlock_t info_lock_write;
 
 struct aura_write_info aura_info[AURA_WRITE_INFO_NUM];
 struct aura_write_info aura_info_tmp[AURA_WRITE_INFO_NUM_TMP];
@@ -65,9 +65,9 @@ bool init_aura_info(void)
     struct page *page = NULL;
 
     atomic_set(&info_count, 0);
-    spin_lock_init(&info_lock);
-    spin_lock_init(&info_lock_tmp);
-    spin_lock_init(&info_lock_write);
+    raw_spin_lock_init(&info_lock);
+    raw_spin_lock_init(&info_lock_tmp);
+    raw_spin_lock_init(&info_lock_write);
     
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
@@ -135,20 +135,20 @@ struct aura_write_info *aura_get_one_info(void)
 {
     int i;    
     
-    spin_lock(&info_lock);
+    raw_spin_lock(&info_lock);
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
         if(INFO_IDLE == aura_info[i].stat)
         {
             aura_info[i].stat = INFO_USED_OTHER;
-            spin_unlock(&info_lock);
+            raw_spin_unlock(&info_lock);
             aura_info[i].isdir = false;
             aura_info[i].iswrite = false;
             atomic_inc(&info_count);
             return &aura_info[i];
         }
     }
-    spin_unlock(&info_lock);
+    raw_spin_unlock(&info_lock);
     
     return NULL;
 }
@@ -157,17 +157,17 @@ struct aura_write_info *aura_get_one_info_tmp(void)
 {
     int i;    
     
-    spin_lock(&info_lock_tmp);
+    raw_spin_lock(&info_lock_tmp);
     for(i=0; i<AURA_WRITE_INFO_NUM_TMP; i++)
     {
         if(INFO_IDLE == aura_info_tmp[i].stat)
         {
             aura_info_tmp[i].stat = INFO_USED_OTHER;
-            spin_unlock(&info_lock_tmp);
+            raw_spin_unlock(&info_lock_tmp);
             return &aura_info_tmp[i];
         }
     }
-    spin_unlock(&info_lock_tmp);
+    raw_spin_unlock(&info_lock_tmp);
     
     return NULL;
 }
@@ -176,17 +176,17 @@ struct aura_write_info *aura_get_one_info_write(void)
 {
     int i;    
     
-    spin_lock(&info_lock_write);
+    raw_spin_lock(&info_lock_write);
     for(i=0; i<AURA_WRITE_INFO_NUM_WRITE; i++)
     {
         if(INFO_IDLE == aura_info_write[i].stat)
         {
             aura_info_write[i].stat = INFO_USED_OTHER;
-            spin_unlock(&info_lock_write);
+            raw_spin_unlock(&info_lock_write);
             return &aura_info_write[i];
         }
     }
-    spin_unlock(&info_lock_write);
+    raw_spin_unlock(&info_lock_write);
     
     return NULL;
 }
@@ -197,12 +197,12 @@ void aura_put_one_info(struct aura_write_info * info)
     if(NULL == info)
         return;
         
-    spin_lock(&info_lock);
+    raw_spin_lock(&info_lock);
     info->path = NULL;
     memset(info->buff, 0 , PATH_MAX);
     memset(info->file, 0 , NAME_MAX);
     info->stat = INFO_IDLE;
-    spin_unlock(&info_lock);
+    raw_spin_unlock(&info_lock);
     
     atomic_dec(&info_count);
 }
@@ -211,24 +211,24 @@ void aura_put_one_info_tmp(struct aura_write_info * info)
 {
     if(NULL == info)
         return;
-    spin_lock(&info_lock_tmp);
+    raw_spin_lock(&info_lock_tmp);
     info->path = NULL;
     memset(info->buff, 0 , PATH_MAX);
     memset(info->file, 0 , NAME_MAX);
     info->stat = INFO_IDLE;
-    spin_unlock(&info_lock_tmp);
+    raw_spin_unlock(&info_lock_tmp);
 }
 
 void aura_put_one_info_write(struct aura_write_info * info)
 {
     if(NULL == info)
         return;
-    spin_lock(&info_lock_write);
+    raw_spin_lock(&info_lock_write);
     info->path = NULL;
     memset(info->buff, 0 , PATH_MAX);
     memset(info->file, 0 , NAME_MAX);
     info->stat = INFO_IDLE;
-    spin_unlock(&info_lock_write);
+    raw_spin_unlock(&info_lock_write);
 }
 
 
@@ -242,20 +242,20 @@ bool aura_fresh_one_info_by_filepath(struct aura_write_info * info)
 
     offset = (int)((unsigned long)info->path - (unsigned long)info->buff);
     
-    spin_lock(&info_lock);
+    raw_spin_lock(&info_lock);
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
         if(INFO_USED_TIMER == aura_info[i].stat)
         {
             if(0 == strncmp(info->path, aura_info[i].path, PATH_MAX-offset))
             {
+                raw_spin_unlock(&info_lock);
                 mod_timer(&aura_info[i].timer, jiffies + HZ);
-                spin_unlock(&info_lock);
                 return true;
             }
         }
     }
-    spin_unlock(&info_lock);
+    raw_spin_unlock(&info_lock);
     
     return false;
 }
@@ -265,9 +265,9 @@ void aura_info_timeout_handle(unsigned long data)
     struct aura_write_info * info;
     info = (struct aura_write_info *)data;
     
-    spin_lock(&filelist_lock);
+    raw_spin_lock(&filelist_lock);
     list_add_tail(&info->list, &filelist_event);
-    spin_unlock(&filelist_lock);
+    raw_spin_unlock(&filelist_lock);
     wake_up_process(filelist_task);
 }
 
@@ -277,7 +277,16 @@ void aura_start_one_info(struct aura_write_info * info)
 	info->timer.data = (unsigned long)info;
 	info->timer.function = aura_info_timeout_handle;
 	info->stat = INFO_USED_TIMER;
-	add_timer(&info->timer);
+	
+	if(info->timer.entry.next == NULL)
+	{
+	    add_timer(&info->timer);
+	}
+	else
+	{
+	    printk("filelist: add a exist timer, path=[%s] file=[%s]!\n", 
+	           info->path==NULL ? "null":info->path, info->file);
+	}
 }
 
 bool aura_get_filename_to_buff(const char *name, char *buff, int bufflen)
@@ -330,7 +339,7 @@ size_t aura_strlen(const char *s)
 
     if(NULL == s)
     {
-        printk("aura_strlen: null string pointer!\n");
+        printk("filelist: detect strlen null string pointer!\n");
         return 0;
     }
         
@@ -342,6 +351,7 @@ size_t aura_strlen(const char *s)
 int filelist_process_fn(void *data)
 { 
     mm_segment_t fs; 
+    unsigned long flags;
     struct file *fp = NULL;
     struct aura_write_info *info;
 
@@ -375,10 +385,10 @@ int filelist_process_fn(void *data)
 		while(!list_empty(&filelist_event))
         {
             __set_current_state(TASK_RUNNING);
-            spin_lock(&filelist_lock);
+            raw_spin_lock_irqsave(&filelist_lock, flags);
             info = list_entry(filelist_event.next, struct aura_write_info, list);
             list_del(&info->list);
-            spin_unlock(&filelist_lock);
+            raw_spin_unlock_irqrestore(&filelist_lock, flags);
 
             has_newlist = true;
             fp->f_op->llseek(fp, 0, SEEK_END);
@@ -528,7 +538,7 @@ static int __init filelist_init(void)
 {    
     printk(KERN_DEBUG"enter auralic filelist module!\n");
     
-    spin_lock_init(&filelist_lock);
+    raw_spin_lock_init(&filelist_lock);
     INIT_LIST_HEAD(&filelist_event);
     
     proc_create(FILELIST_PROC_NAME, 0755, NULL, &filelist_proc_op);

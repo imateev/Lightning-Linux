@@ -2216,6 +2216,9 @@ bool aura_check_path_mache(int dfd, const char __user *pathname, unsigned int lo
             if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
                 ret = true;
         }
+        
+        path_put(&nd.path);
+    	putname(name);
     }
 
     aura_put_one_info_tmp(info);
@@ -3310,6 +3313,7 @@ retry:
     {
         if(0 == error && true == aura_check_path_mache(dfd, pathname, 0))
         {
+            info = NULL;
             while(NULL == info)
             {
                 info = aura_get_one_info();
@@ -3322,6 +3326,8 @@ retry:
                 info->path = d_path(&nd.path, info->buff, PATH_MAX);
                 if(false == aura_get_filename_to_buff(name->name, info->file, NAME_MAX)) 
                     info->stat = INFO_USED_BAD;
+                path_put(&nd.path);
+    	        putname(name);
             }
             else
             {
@@ -3330,17 +3336,21 @@ retry:
 
             if(!IS_ERR(info->path) && INFO_USED_BAD != info->stat)
             {
+                unsigned long flags;
+                
                 if(FILELIST_DEBUG)
     	            printk(KERN_DEBUG"do_mkdir [%s/%s/]\n", info->path, info->file);
                 info->isdir = true;
-                spin_lock(&filelist_lock);
+                raw_spin_lock_irqsave(&filelist_lock, flags);
                 list_add_tail(&info->list, &filelist_event);
-                spin_unlock(&filelist_lock);
+                raw_spin_unlock_irqrestore(&filelist_lock, flags);
                 wake_up_process(filelist_task);
+                info = NULL;
             }
             else
             {
                 aura_put_one_info(info);
+                printk(KERN_DEBUG"%s  line:%d invalid info->path or bad info->stat\n", __func__, __LINE__);
                 info = NULL;
             }
         }
@@ -3440,6 +3450,7 @@ retry:
         is_match = aura_check_path_mache(dfd, pathname, lookup_flags);
         if(true == is_match)
         {
+            info = NULL;
             while(NULL == info)
             {
                 info= aura_get_one_info();
@@ -3498,18 +3509,20 @@ retry:
 	{
         if(0 == error && true == vfs_can_access && INFO_USED_BAD != info->stat)
     	{
-    	    
+    	    unsigned long flags;
             if(FILELIST_DEBUG)
 	            printk(KERN_DEBUG"do_rmdir [%s/%s/]\n", info->path, info->file);    	    
     	    info->isdir = true;
-            spin_lock(&filelist_lock);
+            raw_spin_lock_irqsave(&filelist_lock, flags);
             list_add_tail(&info->list, &filelist_event);
-            spin_unlock(&filelist_lock);
+            raw_spin_unlock_irqrestore(&filelist_lock, flags);
             wake_up_process(filelist_task);
+            info = NULL;
         }
         else
         {
             aura_put_one_info(info);
+            printk(KERN_DEBUG"%s  line:%d invalid info->path\n", __func__, __LINE__);
             info = NULL;
         }
     }
@@ -3598,6 +3611,7 @@ retry:
         is_match = aura_check_path_mache(dfd, pathname, lookup_flags);
         if(true == is_match)
         {
+            info = NULL;
             while(NULL == info)
             {
                 info = aura_get_one_info();
@@ -3648,16 +3662,19 @@ retry:
 		{
             if(0 == error && INFO_USED_BAD != info->stat)
             {
+                unsigned long flags;
                 if(FILELIST_DEBUG)
                     printk(KERN_DEBUG"remove [%s/%s]\n", info->path, info->file);
-                spin_lock(&filelist_lock);
+                raw_spin_lock_irqsave(&filelist_lock, flags);
                 list_add_tail(&info->list, &filelist_event);
-                spin_unlock(&filelist_lock);
+                raw_spin_unlock_irqrestore(&filelist_lock, flags);
                 wake_up_process(filelist_task);
+                info = NULL;
             }
             else
             {
                 aura_put_one_info(info);
+                printk(KERN_DEBUG"%s  line:%d invalid error or bad info->stat\n", __func__, __LINE__);
                 info = NULL;
             }
         }
@@ -4136,7 +4153,8 @@ retry:
     if(0 == error && true == vfs_can_access)
     {
         if(true == match_old)
-        {
+        {       
+            info_old = NULL;
             while(NULL == info_old)
             {
                 info_old = aura_get_one_info();
@@ -4148,6 +4166,7 @@ retry:
             {
                 if(true == aura_get_filename_to_buff(from->name, info_old->file, NAME_MAX))
                 {
+                    unsigned long flags;
                     if(aura_is_dir)
                     {
                         info_old->isdir = true;
@@ -4160,27 +4179,31 @@ retry:
                         if(FILELIST_DEBUG)
             	            printk(KERN_DEBUG"rename [%s/%s] to ..\n", info_old->path, info_old->file);
                     }
-                    spin_lock(&filelist_lock);
+                    raw_spin_lock_irqsave(&filelist_lock, flags);
                     list_add_tail(&info_old->list, &filelist_event);
-                    spin_unlock(&filelist_lock);
+                    raw_spin_unlock_irqrestore(&filelist_lock, flags);
                     wake_up_process(filelist_task);
+                    info_old = NULL;
                 }
                 else
                 {
                     aura_put_one_info(info_old);
                     info_old = NULL;
+                    printk(KERN_DEBUG"%s  line:%d get file name to buff failed\n", __func__, __LINE__);
                 }
             }
             else
             {
                 aura_put_one_info(info_old);
                 info_old = NULL;
+                printk(KERN_DEBUG"%s  line:%d invalid info_old->path\n", __func__, __LINE__);
             }
         }
 
         // check for new
         if(true == match_new)
         {
+            info_new = NULL;
             while(NULL == info_new)
             {
                 info_new = aura_get_one_info();
@@ -4192,6 +4215,7 @@ retry:
             {
                 if(true == aura_get_filename_to_buff(to->name, info_new->file, NAME_MAX))
                 {
+                    unsigned long flags;
                     if(aura_is_dir)
                     {
                         info_new->isdir = true;
@@ -4204,20 +4228,23 @@ retry:
                         if(FILELIST_DEBUG)
             	            printk(KERN_DEBUG"rename [%s/%s] from ..\n", info_new->path, info_new->file);
                     }
-                    spin_lock(&filelist_lock);
+                    raw_spin_lock_irqsave(&filelist_lock, flags);
                     list_add_tail(&info_new->list, &filelist_event);
-                    spin_unlock(&filelist_lock);
+                    raw_spin_unlock_irqrestore(&filelist_lock, flags);
                     wake_up_process(filelist_task);
+                    info_new = NULL;
                 }
                 else
                 {
                     aura_put_one_info(info_new);
+                    printk(KERN_DEBUG"%s  line:%d get filename to buff failed\n", __func__, __LINE__);
                     info_new = NULL;
                 }
             }
             else
             {
                 aura_put_one_info(info_new);
+                printk(KERN_DEBUG"%s  line:%d invalid info_new->path\n", __func__, __LINE__);
                 info_new = NULL;
             }
         }
