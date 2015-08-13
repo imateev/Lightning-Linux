@@ -2225,6 +2225,34 @@ bool aura_check_path_mache(int dfd, const char __user *pathname, unsigned int lo
     
     return ret;
 }
+
+bool aura_check_create_path_mache(struct path *path)
+{
+    bool ret = false;
+    struct aura_write_info * info = NULL;
+    
+    while(NULL == info)
+    {
+        info = aura_get_one_info_tmp();
+        if(NULL == info)
+            schedule_timeout_interruptible(HZ/100);
+    }
+    
+    if(!IS_ERR(path))
+    {
+        info->path = d_path(path, (char *)info->buff, PATH_MAX);
+        if(!IS_ERR(info->path))
+        {
+            if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+                ret = true;
+        }
+    }
+
+    aura_put_one_info_tmp(info);
+    
+    return ret;
+}
+
 #endif
 
 
@@ -2655,7 +2683,10 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 	struct dentry *dentry;
 	int error;
 	bool need_lookup;    
-
+	#ifdef CONFIG_AURALIC_FILELIST
+    struct aura_write_info *info = NULL;
+    #endif
+    
 	*opened &= ~FILE_CREATED;
 	dentry = lookup_dcache(&nd->last, dir, nd->flags, &need_lookup);
 	if (IS_ERR(dentry))
@@ -2700,7 +2731,64 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 			goto out_dput;
 		error = vfs_create(dir->d_inode, dentry, mode,
 				   nd->flags & LOOKUP_EXCL);
-				   	    
+        #ifdef CONFIG_AURALIC_FILELIST 
+		if(0 == error && true == vfs_can_access)
+		{
+            if(true == aura_check_create_path_mache(&nd->path))
+		    {
+                info = NULL;
+                while(NULL == info)
+                {
+                    info = aura_get_one_info();
+                    if(NULL == info)
+                        schedule_timeout_interruptible(HZ/100);
+                }
+                info->path = d_path(&nd->path, info->buff, PATH_MAX);
+                if(!IS_ERR(info->path))
+                {
+                    if(true == aura_get_filename_to_buff(pathname->name, info->file, NAME_MAX))
+                    {
+                        int index = strlen(info->path);
+                        info->path[index++] = '/';
+                        info->path[index] = '\0';
+                        if(PATH_MAX - index > strlen(info->file))
+                        {
+                            /* combine file path and file name */
+                            int path_len, file_len;
+                            file_len = strlen(info->file);
+                            path_len = strlen(info->path);
+                            info->path -= file_len;
+                            memcpy(info->path, info->path+file_len, path_len);
+                            memcpy(info->path+path_len, info->file, file_len);
+                            info->path[path_len+file_len]='\0'; 
+							info->iswrite = true;
+                            memset(info->file, 0, NAME_MAX);
+                            aura_start_one_info(info);
+                            info = NULL;
+                        }
+                        else
+                        {
+                            aura_put_one_info(info);
+                            info = NULL;
+                            printk(KERN_DEBUG"%s  line:%d combine filename failed\n", __func__, __LINE__);
+                        }
+                    }
+                    else
+                    {
+                        aura_put_one_info(info);
+                        info = NULL;
+                        printk(KERN_DEBUG"%s  line:%d get filename to buff failed\n", __func__, __LINE__);
+                    }
+                }
+                else
+                {
+                    aura_put_one_info(info);
+                    info = NULL;
+                    printk(KERN_DEBUG"%s  line:%d invalid info->path\n", __func__, __LINE__);
+                }
+            }
+		}
+		#endif  
 		if (error)
 			goto out_dput;
 	}
