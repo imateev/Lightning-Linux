@@ -134,21 +134,22 @@ bool init_aura_info(void)
 struct aura_write_info *aura_get_one_info(void)
 {
     int i;    
+    unsigned long flags;
     
-    raw_spin_lock(&info_lock);
+    raw_spin_lock_irqsave(&info_lock, flags);
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
         if(INFO_IDLE == aura_info[i].stat)
         {
             aura_info[i].stat = INFO_USED_OTHER;
-            raw_spin_unlock(&info_lock);
+            raw_spin_unlock_irqrestore(&info_lock, flags);
             aura_info[i].isdir = false;
             aura_info[i].iswrite = false;
             atomic_inc(&info_count);
             return &aura_info[i];
         }
     }
-    raw_spin_unlock(&info_lock);
+    raw_spin_unlock_irqrestore(&info_lock, flags);
     
     return NULL;
 }
@@ -194,15 +195,17 @@ struct aura_write_info *aura_get_one_info_write(void)
 
 void aura_put_one_info(struct aura_write_info * info)
 {
+    unsigned long flags;
+    
     if(NULL == info)
         return;
         
-    raw_spin_lock(&info_lock);
+    raw_spin_lock_irqsave(&info_lock, flags);
     info->path = NULL;
     memset(info->buff, 0 , PATH_MAX);
     memset(info->file, 0 , NAME_MAX);
     info->stat = INFO_IDLE;
-    raw_spin_unlock(&info_lock);
+    raw_spin_unlock_irqrestore(&info_lock, flags);
     
     atomic_dec(&info_count);
 }
@@ -236,26 +239,27 @@ bool aura_fresh_one_info_by_filepath(struct aura_write_info * info)
 {
     int i;
     int offset;
+    unsigned long flags;
 
     if(NULL == info || NULL == info->path)
         return false;
 
     offset = (int)((unsigned long)info->path - (unsigned long)info->buff);
     
-    raw_spin_lock(&info_lock);
+    raw_spin_lock_irqsave(&info_lock, flags);
     for(i=0; i<AURA_WRITE_INFO_NUM; i++)
     {
         if(INFO_USED_TIMER == aura_info[i].stat)
         {
             if(0 == strncmp(info->path, aura_info[i].path, PATH_MAX-offset))
             {
-                raw_spin_unlock(&info_lock);
+                raw_spin_unlock_irqrestore(&info_lock, flags);
                 mod_timer(&aura_info[i].timer, jiffies + HZ);
                 return true;
             }
         }
     }
-    raw_spin_unlock(&info_lock);
+    raw_spin_unlock_irqrestore(&info_lock, flags);
     
     return false;
 }
