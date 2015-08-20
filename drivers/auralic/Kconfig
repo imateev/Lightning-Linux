@@ -90,13 +90,13 @@ endif  # end of menuconfig AURALIC_MINI
 
 
 #########################################################################	 
-##   menu for auralic full drivers                                     ##
+##   menu for auralic aries drivers                                     ##
 ######################################################################### 
 
-menuconfig AURALIC_FULL
-    bool "AURALiC Full Drivers"
+menuconfig AURALIC_ARIES
+    bool "AURALiC Aries Drivers"
     
-if AURALIC_FULL
+if AURALIC_ARIES
 
 config AURALIC_LEDS
 	tristate "LED Support for AURALiC"
@@ -169,5 +169,5 @@ config AURALIC_FILELIST
 	tristate "use filelist module to record all file's change time"
 	help
 	  This option enables support for recording all file's change time.
-endif # end of menuconfig AURALIC_FULL
+endif # end of menuconfig AURALIC_ARIES
 endif # end of AURALIC_DRIVERS 
