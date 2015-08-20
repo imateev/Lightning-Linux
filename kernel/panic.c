@@ -35,7 +35,7 @@ static DEFINE_SPINLOCK(pause_on_oops_lock);
 #ifdef CONFIG_AURALIC_PANIC
 int panic_timeout = 1;
 #else
-int panic_timeout;
+int panic_timeout = 1;
 #endif
 EXPORT_SYMBOL_GPL(panic_timeout);
 
