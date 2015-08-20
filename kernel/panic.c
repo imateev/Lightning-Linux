@@ -32,7 +32,11 @@ static int pause_on_oops;
 static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
 
+#ifdef CONFIG_AURALIC_PANIC
+int panic_timeout = 1;
+#else
 int panic_timeout;
+#endif
 EXPORT_SYMBOL_GPL(panic_timeout);
 
 ATOMIC_NOTIFIER_HEAD(panic_notifier_list);

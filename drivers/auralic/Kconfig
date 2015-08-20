@@ -83,6 +83,11 @@ config AURALIC_FILELIST
 	tristate "use filelist module to record all file's change time"
 	help
 	  This option enables support for recording all file's change time.
+	  
+config AURALIC_PANIC
+	tristate "support syslog save when kernel panic"
+	help
+	  This option enables support for syslog save when kernel panic.
 
 endif  # end of menuconfig AURALIC_MINI
 
@@ -169,5 +174,10 @@ config AURALIC_FILELIST
 	tristate "use filelist module to record all file's change time"
 	help
 	  This option enables support for recording all file's change time.
+	  
+config AURALIC_PANIC
+	tristate "support syslog save when kernel panic"
+	help
+	  This option enables support for syslog save when kernel panic.
 endif # end of menuconfig AURALIC_ARIES
 endif # end of AURALIC_DRIVERS 
