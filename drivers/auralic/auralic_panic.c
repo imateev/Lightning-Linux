@@ -63,7 +63,6 @@ static int __init aura_panic_init(void)
         if(0 < panic->logsize && 0 == strncmp(panic->magic, PANIC_MAGIC, strlen(PANIC_MAGIC)))
         {
             mm_segment_t fs; 
-            unsigned long flags;
             struct file *fp = NULL;
 
             printk(KERN_DEBUG"auralic found panic log %d bytes!\n", panic->logsize);
