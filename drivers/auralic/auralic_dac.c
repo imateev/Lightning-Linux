@@ -246,7 +246,7 @@ void dac_read_irq_register(char reg)
 
 irqreturn_t dac_reset_irq_handler(int devid, void * data)
 {
-    printk("auralic dac reset interrupted!\n");
+    printk(KERN_DEBUG"auralic dac reset interrupted!\n");
     wake_up_process(dactask);
     return IRQ_HANDLED;
 }
@@ -256,18 +256,20 @@ int dac_reset_detect_fn(void *data)
 {
     printk(KERN_DEBUG"start dac_reset_detect_fn\n");
     
+    set_current_state(TASK_INTERRUPTIBLE);
     while(!kthread_should_stop())
     {
-        set_current_state(TASK_INTERRUPTIBLE);
         #ifdef  CONFIG_DAC_RESET_IRQ
         schedule();
+        set_current_state(TASK_INTERRUPTIBLE);
         dac_read_irq_register(DAC_IRQ_STATUS_REG);
         #else
         schedule_timeout(HZ);
+        set_current_state(TASK_INTERRUPTIBLE);
         #endif
         if(true == dac_check_reseted())
         {
-            printk("dac detect reset, re-init it now!");
+            printk(KERN_DEBUG"dac detect reset, re-init it now!");
             init_dac_es9018k2m();
         }
         //printk(KERN_DEBUG"dac_reset_detect_fn wakeup\n");
