@@ -25,7 +25,7 @@
 #include <linux/kmsg_dump.h>
 #include "auralic_panic.h"
 
-#define  PANIC_LOG_FILE     "/home/root/kernel_panic.log"
+#define  PANIC_LOG_FILE     "/media/mmcblk0p1/kernel_panic.log"
 
 void __iomem *logbuff = NULL;
 
