@@ -46,6 +46,7 @@
 #define     DAC_RESET_GPIO  (3*32 + 10)//KEY_COL2_GPIO4_10
 #define     VOL_R_REG       15 //VOLUME 1
 #define     VOL_L_REG       16 //VOLUME 2
+#define     DAC_RESET_VALUE 0x0d
 
 struct i2c_client *dac_dev = NULL;
 
@@ -53,6 +54,12 @@ char vol_l_cur = 0xff, vol_r_cur =0xff;//
 
 static struct task_struct *dactask = NULL;
 
+//#define     CONFIG_DAC_RESET_IRQ
+#ifdef  CONFIG_DAC_RESET_IRQ
+#define  IMX_GPIO_NR(bank, nr)		(((bank) - 1) * 32 + (nr))
+#define  DAC_RESET_IRQ_PIN          IMX_GPIO_NR(4,15)
+#define  DAC_IRQ_STATUS_REG         64
+#endif
 
 ssize_t dacproc_read(struct file *filp, char __user *usrbuf, size_t size, loff_t *offset)
 {
@@ -203,7 +210,7 @@ bool dac_check_reseted(void)
     
     i2c_master_send(dac_dev, &reg, 1);// select register
     i2c_master_recv(dac_dev, &value, 1);// read value from register
-    if(0x0d == value)
+    if(DAC_RESET_VALUE == value)
         return false;
     else
         return true;
@@ -228,6 +235,23 @@ void init_dac_es9018k2m(void)
 }
 
 
+#ifdef  CONFIG_DAC_RESET_IRQ
+void dac_read_irq_register(char reg)
+{
+    int ret;
+    char tmp;
+    ret = i2c_master_send(dac_dev, &reg, 1);// select register
+    ret = i2c_master_recv(dac_dev, &tmp, 1);// read value from register
+}
+
+irqreturn_t dac_reset_irq_handler(int devid, void * data)
+{
+    printk("auralic dac reset interrupted!\n");
+    wake_up_process(dactask);
+    return IRQ_HANDLED;
+}
+#endif
+
 int dac_reset_detect_fn(void *data)
 {
     printk(KERN_DEBUG"start dac_reset_detect_fn\n");
@@ -235,7 +259,12 @@ int dac_reset_detect_fn(void *data)
     while(!kthread_should_stop())
     {
         set_current_state(TASK_INTERRUPTIBLE);
+        #ifdef  CONFIG_DAC_RESET_IRQ
+        schedule();
+        dac_read_irq_register(DAC_IRQ_STATUS_REG);
+        #else
         schedule_timeout(HZ);
+        #endif
         if(true == dac_check_reseted())
         {
             printk("dac detect reset, re-init it now!");
@@ -249,10 +278,10 @@ int dac_reset_detect_fn(void *data)
     return 0;
 }
 
-
 static int auralic_dac_probe(struct i2c_client *client,
 				       const struct i2c_device_id *id)
 {
+    printk(KERN_DEBUG"loading auralic dac module!\n");
     
     if(0 > gpio_request(DAC_RESET_GPIO, "DAC reset gpio\n")) // gpio2_4
     {
@@ -266,11 +295,11 @@ static int auralic_dac_probe(struct i2c_client *client,
         return -1;
     }
 
-    printk(KERN_DEBUG"dac addr:0x%x\n", client->addr);
+    printk(KERN_DEBUG"auralic dac iic addr:0x%x\n", client->addr);
     
     dac_dev = client;
     init_dac_es9018k2m();
-    
+
     dactask = kthread_run(dac_reset_detect_fn, NULL, "dactask");
     if (IS_ERR(dactask))
     {
@@ -279,19 +308,37 @@ static int auralic_dac_probe(struct i2c_client *client,
         return -ENOMEM;
     }
     
+    #ifdef  CONFIG_DAC_RESET_IRQ
+    if(0 != request_irq(gpio_to_irq(DAC_RESET_IRQ_PIN), 
+       dac_reset_irq_handler, IRQF_TRIGGER_RISING, "dac_reset_irq", NULL))
+    {
+        pr_err("request dac reset irq failed!\n");
+        return -ENOMEM;
+    }
+    #endif
+    
     return 0;
 }
 
 static int auralic_dac_remove(struct i2c_client *client)
 {
+    #ifdef  CONFIG_DAC_RESET_IRQ
+    free_irq(gpio_to_irq(DAC_RESET_IRQ_PIN), NULL);
+    #endif
+    
     if(NULL != dactask)
     {
         kthread_stop(dactask);
+        
+        #ifdef  CONFIG_DAC_RESET_IRQ
+        wake_up_process(dactask);
+        #endif
         dactask = NULL;
     }
+    
     remove_proc_entry(DAC_PROC_NAME, NULL);
     gpio_free(DAC_RESET_GPIO);
-    printk(KERN_DEBUG"leave dac module!\n");
+    printk(KERN_DEBUG"unloading auralic dac module!\n");
 	return 0;
 }
 
@@ -322,7 +369,7 @@ static struct of_device_id auralic_dac_dt_ids[] = {
 
 static struct i2c_driver auralic_dac_driver = {
 	.driver = {
-		.name	= "auralic_iic",
+		.name	= "auralic_iic_dac",
 		.owner	= THIS_MODULE,
 		.pm	    = &auralic_pm_ops,
 		.of_match_table	= of_match_ptr(auralic_dac_dt_ids),
@@ -335,6 +382,6 @@ static struct i2c_driver auralic_dac_driver = {
 module_i2c_driver(auralic_dac_driver);
 
 MODULE_AUTHOR("AURALiC LIMTED.");
-MODULE_DESCRIPTION("coder driver for ES9018K2M");
+MODULE_DESCRIPTION("iic driver for ES9018K2M");
 MODULE_LICENSE("GPL");
 
