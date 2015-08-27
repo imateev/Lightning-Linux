@@ -54,7 +54,7 @@ char vol_l_cur = 0xff, vol_r_cur =0xff;//
 
 static struct task_struct *dactask = NULL;
 
-//#define     CONFIG_DAC_RESET_IRQ
+#define     CONFIG_DAC_RESET_IRQ
 #ifdef  CONFIG_DAC_RESET_IRQ
 #define  IMX_GPIO_NR(bank, nr)		(((bank) - 1) * 32 + (nr))
 #define  DAC_RESET_IRQ_PIN          IMX_GPIO_NR(4,15)
@@ -234,7 +234,6 @@ void init_dac_es9018k2m(void)
     dac_write_and_verify(VOL_R_REG, vol_r_cur, RETRY_COUNT);
 }
 
-
 #ifdef  CONFIG_DAC_RESET_IRQ
 void dac_read_irq_register(char reg)
 {
@@ -246,7 +245,13 @@ void dac_read_irq_register(char reg)
 
 irqreturn_t dac_reset_irq_handler(int devid, void * data)
 {
+    #if 0
+    struct timeval tv;
+    do_gettimeofday(&tv);
+    printk(KERN_DEBUG"auralic dac reset interrupted %d.%d!\n", tv.tv_sec, tv.tv_usec);
+    #else
     printk(KERN_DEBUG"auralic dac reset interrupted!\n");
+    #endif
     wake_up_process(dactask);
     return IRQ_HANDLED;
 }
@@ -256,23 +261,22 @@ int dac_reset_detect_fn(void *data)
 {
     printk(KERN_DEBUG"start dac_reset_detect_fn\n");
     
-    set_current_state(TASK_INTERRUPTIBLE);
     while(!kthread_should_stop())
     {
         #ifdef  CONFIG_DAC_RESET_IRQ
-        schedule();
         set_current_state(TASK_INTERRUPTIBLE);
+        schedule();
         dac_read_irq_register(DAC_IRQ_STATUS_REG);
         #else
-        schedule_timeout(HZ);
         set_current_state(TASK_INTERRUPTIBLE);
+        schedule_timeout(HZ);
         #endif
         if(true == dac_check_reseted())
         {
             printk(KERN_DEBUG"dac detect reset, re-init it now!");
             init_dac_es9018k2m();
         }
-        //printk(KERN_DEBUG"dac_reset_detect_fn wakeup\n");
+        printk(KERN_DEBUG"dac_reset_detect_fn processed!\n");
     }
 
     printk(KERN_DEBUG"leave dac_reset_detect_fn\n");
