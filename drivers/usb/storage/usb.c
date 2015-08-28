@@ -919,9 +919,15 @@ int usb_stor_probe1(struct us_data **pus,
 	 */
 	#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
 	if(0 == strncmp(dev_name(&intf->dev), "1-1.3", strlen("1-1.3")))
-                host->auralic_id = AURALIC_USB0_ID;
-        else if(0 == strncmp(dev_name(&intf->dev), "1-1.2", strlen("1-1.2")))
-                host->auralic_id = AURALIC_USB1_ID;
+		host->auralic_id = AURALIC_USB0_ID;
+	else if(0 == strncmp(dev_name(&intf->dev), "1-1.2", strlen("1-1.2")))
+		host->auralic_id = AURALIC_USB1_ID;
+	#ifdef  CONFIG_AURALIC_MINI
+    else if(0 == strncmp(dev_name(&intf->dev), "2-1.3", strlen("2-1.3")))
+		host->auralic_id = AURALIC_USB0_ID;
+	else if(0 == strncmp(dev_name(&intf->dev), "2-1.2", strlen("2-1.2")))
+		host->auralic_id = AURALIC_USB1_ID;
+    #endif 
 	#endif
 	
 	host->max_cmd_len = 16;
