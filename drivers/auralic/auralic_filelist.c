@@ -25,7 +25,7 @@
 
 
 #define         FILELIST_PROC_NAME       "filelist"
-#define         FILELIST_NAME_TMP        "/media/mmcblk0p1/app/mediaServer/list.bin"
+#define         FILELIST_NAME_TMP        "/media/hda1/list.bin"
 #define         AURA_WRITE_INFO_NUM      50 
 #define         AURA_WRITE_INFO_NUM_TMP  50 
 #define         AURA_WRITE_INFO_NUM_WRITE  50 
