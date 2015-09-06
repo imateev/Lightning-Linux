@@ -3083,22 +3083,41 @@ static int sd_probe(struct device *dev)
 		
 #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
 reget:
+	if(AURALIC_SATA_ID != sdp->host->auralic_id)
+	{
 #endif
-	do {
-		if (!ida_pre_get(&sd_index_ida, GFP_KERNEL))
+		do {
+			if (!ida_pre_get(&sd_index_ida, GFP_KERNEL))
+				goto out_put;
+
+			spin_lock(&sd_index_lock);
+			error = ida_get_new(&sd_index_ida, &index);
+			spin_unlock(&sd_index_lock);
+		} while (error == -EAGAIN);
+
+		if (error) {
+			sdev_printk(KERN_WARNING, sdp, "sd_probe: memory exhausted.\n");
 			goto out_put;
-
-		spin_lock(&sd_index_lock);
-		error = ida_get_new(&sd_index_ida, &index);
-		spin_unlock(&sd_index_lock);
-	} while (error == -EAGAIN);
-
-	if (error) {
-		sdev_printk(KERN_WARNING, sdp, "sd_probe: memory exhausted.\n");
-		goto out_put;
-	}
-
+		}
 #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	}
+#ifdef  CONFIG_AURALIC_MINI  // don't bind usb disk name for mini, only bind hdd disk name
+	if(AURALIC_SATA_ID == sdp->host->auralic_id)
+    {   // sata
+		usb_index = get_sata_disk_index();
+		if(MAX_DISK_COUNT_SATA <= usb_index)
+			error = MAX_DISK_COUNT_SATA;
+		else
+        {
+			sdkp->auralic_index = usb_index;
+			error = sd_format_disk_name("hd", 0, gd->disk_name, DISK_NAME_LEN);
+        }
+	}
+	else
+	{
+        error = sd_format_disk_name("sd", index, gd->disk_name, DISK_NAME_LEN); 
+    }
+#else
         if( (MAX_DISK_COUNT_PER_USB * 2) > index)
                 goto reget;
     
@@ -3141,9 +3160,10 @@ reget:
         }
         else
                 error = sd_format_disk_name("sd-", index, gd->disk_name, DISK_NAME_LEN);   
+#endif  // end of #ifdef  CONFIG_AURALIC_MINI
 #else
                 error = sd_format_disk_name("sd", index, gd->disk_name, DISK_NAME_LEN);     
-#endif
+#endif // end of #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
 
 	if (error) {
 		sdev_printk(KERN_WARNING, sdp, "SCSI disk (sd) name length exceeded.\n");
@@ -3191,6 +3211,9 @@ reget:
                 put_sata_disk_index(sdkp->auralic_index);
  #endif
 	spin_lock(&sd_index_lock);
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	if(AURALIC_SATA_ID != sdp->host->auralic_id)
+#endif	
 	ida_remove(&sd_index_ida, index);
 	spin_unlock(&sd_index_lock);
  out_put:
@@ -3312,6 +3335,9 @@ static void scsi_disk_release(struct device *dev)
 #endif
 
 	spin_lock(&sd_index_lock);
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	if(AURALIC_SATA_ID != sdkp->device->host->auralic_id)
+#endif
 	ida_remove(&sd_index_ida, sdkp->index);
 	spin_unlock(&sd_index_lock);
 

@@ -918,11 +918,11 @@ int usb_stor_probe1(struct us_data **pus,
 	 * Allow 16-byte CDBs and thus > 2TB
 	 */
 	#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	#ifndef  CONFIG_AURALIC_MINI  // don't bind usb disk name for mini
 	if(0 == strncmp(dev_name(&intf->dev), "1-1.3", strlen("1-1.3")))
 		host->auralic_id = AURALIC_USB0_ID;
 	else if(0 == strncmp(dev_name(&intf->dev), "1-1.2", strlen("1-1.2")))
 		host->auralic_id = AURALIC_USB1_ID;
-	#ifdef  CONFIG_AURALIC_MINI
     else if(0 == strncmp(dev_name(&intf->dev), "2-1.3", strlen("2-1.3")))
 		host->auralic_id = AURALIC_USB0_ID;
 	else if(0 == strncmp(dev_name(&intf->dev), "2-1.2", strlen("2-1.2")))
