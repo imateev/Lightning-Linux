@@ -3,7 +3,7 @@
 
 #define  FILELIST_DEBUG         0
 #define  FILELIST_MODIFY_DEBUG  0
-
+#define  FILELIST_D_PATH_RESERVE 64
 enum filelist_status_enum
 {
     INFO_IDLE  = 0, // not used

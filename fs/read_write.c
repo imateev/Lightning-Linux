@@ -443,8 +443,9 @@ bool aura_check_path_mache_write(struct path *path)
         if(NULL == info)
             schedule_timeout_interruptible(HZ/100);
     }
-    
-    info->path = d_path(path, info->buff, PATH_MAX);
+    path_get(path);
+    info->path = d_path(path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+    path_put(path);
     if(!IS_ERR(info->path))
     {
         if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
@@ -496,7 +497,9 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
                         if(NULL == info)
                             schedule_timeout_interruptible(HZ/100);
                     }
-                    info->path = d_path(&file->f_path, info->buff, PATH_MAX);
+                    path_get(&file->f_path);
+                    info->path = d_path(&file->f_path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+                    path_put(&file->f_path);
                     if(!IS_ERR(info->path))
                     {
                         info->iswrite = true;

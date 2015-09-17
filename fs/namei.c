@@ -2210,7 +2210,7 @@ bool aura_check_path_mache(int dfd, const char __user *pathname, unsigned int lo
     name = user_path_parent(dfd, pathname, &nd, lookup_flags);
     if(!IS_ERR(name))
     {
-        info->path = d_path(&nd.path, (char *)info->buff, PATH_MAX);
+        info->path = d_path(&nd.path, (char *)info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
         if(!IS_ERR(info->path))
         {
             if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
@@ -2240,7 +2240,9 @@ bool aura_check_create_path_mache(struct path *path)
     
     if(!IS_ERR(path))
     {
-        info->path = d_path(path, (char *)info->buff, PATH_MAX);
+        path_get(path);
+        info->path = d_path(path, (char *)info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+        path_put(path);
         if(!IS_ERR(info->path))
         {
             if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
@@ -2743,7 +2745,9 @@ static int lookup_open(struct nameidata *nd, struct path *path,
                     if(NULL == info)
                         schedule_timeout_interruptible(HZ/100);
                 }
-                info->path = d_path(&nd->path, info->buff, PATH_MAX);
+                path_get(&nd->path);
+                info->path = d_path(&nd->path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+                path_put(&nd->path);
                 if(!IS_ERR(info->path))
                 {
                     if(true == aura_get_filename_to_buff(pathname->name, info->file, NAME_MAX))
@@ -3411,7 +3415,7 @@ retry:
             name = user_path_parent(dfd, pathname, &nd, 0);
             if(!IS_ERR(name))
             {
-                info->path = d_path(&nd.path, info->buff, PATH_MAX);
+                info->path = d_path(&nd.path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
                 if(false == aura_get_filename_to_buff(name->name, info->file, NAME_MAX)) 
                     info->stat = INFO_USED_BAD;
                 path_put(&nd.path);
@@ -3546,7 +3550,9 @@ retry:
                     schedule_timeout_interruptible(HZ/100);
             }
             
-            info->path = d_path(&nd.path, info->buff, PATH_MAX);
+            path_get(&nd.path);
+            info->path = d_path(&nd.path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&nd.path);
             if(!IS_ERR(info->path))
             {
                 if(false == aura_get_filename_to_buff(name->name, info->file, NAME_MAX)) 
@@ -3706,7 +3712,9 @@ retry:
                 if(NULL == info)
                     schedule_timeout_interruptible(HZ/100);
             }
-            info->path = d_path(&nd.path, (char *)info->buff, PATH_MAX);
+            path_get(&nd.path);
+            info->path = d_path(&nd.path, (char *)info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&nd.path);
             if(!IS_ERR(info->path))
             {
                 if(false == aura_get_filename_to_buff(name->name, info->file, NAME_MAX)) 
@@ -4249,7 +4257,9 @@ retry:
                 if(NULL == info_old)
                     schedule_timeout_interruptible(HZ/100);
             }
-            info_old->path = d_path(&oldnd.path, (char *)info_old->buff, PATH_MAX);
+            path_get(&oldnd.path);
+            info_old->path = d_path(&oldnd.path, (char *)info_old->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&oldnd.path);
             if(!IS_ERR(info_old->path))
             {
                 if(true == aura_get_filename_to_buff(from->name, info_old->file, NAME_MAX))
@@ -4298,7 +4308,9 @@ retry:
                 if(NULL == info_new)
                     schedule_timeout_interruptible(HZ/100);
             }
-            info_new->path = d_path(&newnd.path, (char *)info_new->buff, PATH_MAX);
+            path_get(&newnd.path);
+            info_new->path = d_path(&newnd.path, (char *)info_new->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&newnd.path);
             if(!IS_ERR(info_new->path))
             {
                 if(true == aura_get_filename_to_buff(to->name, info_new->file, NAME_MAX))
