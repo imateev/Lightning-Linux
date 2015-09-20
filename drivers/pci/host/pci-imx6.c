@@ -11,7 +11,6 @@
  * it under the terms of the GNU General Public License version 2 as
  * published by the Free Software Foundation.
  */
-
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/gpio.h>
@@ -356,13 +355,58 @@ static int imx6_pcie_deassert_core_reset(struct pcie_port *pp)
 
 	/* allow the clocks to stabilize */
 	udelay(200);
-
+	#ifdef  CONFIG_AURALIC_MINI
+    do
+    {
+        #define UART1_RX_PIN    (4*32 + 29)  //GPIO5_IO29
+        unsigned int *reg;
+    	unsigned int value;
+    	unsigned int tmp;
+        reg = ioremap(0x20e0284, 4);
+        if(NULL == reg) 
+        {
+            printk(KERN_DEBUG"auralic pci ioremap uart1_rx for pcie reset failed!\n");
+            break;
+        }
+        
+        tmp = value = *reg;
+        printk(KERN_DEBUG"auralic pci uart1 old reg[0x020e0284] = 0x%08x\n", value);
+        tmp &=0xfffffff8;
+        tmp |=0x05;
+        *reg=tmp;
+        printk(KERN_DEBUG"auralic pci uart1 new reg[0x020e0284] = 0x%08x\n", *reg);
+        if(0 > gpio_request(UART1_RX_PIN, "uart1_rx_for_pcie_reset")) // gpio2_0
+        {
+            printk(KERN_DEBUG"auralic pci request uart1_rx for pcie reset failed!\n");
+            iounmap(reg);
+            break;
+        }
+        gpio_direction_output(UART1_RX_PIN, 0);
+        /*-------------------------------------------*/
+        
+    	/* Some boards don't have PCIe reset GPIO. */
+    	if (gpio_is_valid(imx6_pcie->reset_gpio)) {
+    		gpio_set_value_cansleep(imx6_pcie->reset_gpio, 0);
+    		mdelay(150);
+    		gpio_set_value_cansleep(imx6_pcie->reset_gpio, 1);
+    	}
+    	
+        /*-------------------------------------------*/
+        gpio_set_value(UART1_RX_PIN, 1);
+        *reg = value;
+        iounmap(reg);
+        gpio_free(UART1_RX_PIN);
+        printk(KERN_DEBUG"auralic pci uart1 restore reg[0x020e0284] = 0x%08x\n", *reg);
+	}while(0);
+	#else
 	/* Some boards don't have PCIe reset GPIO. */
 	if (gpio_is_valid(imx6_pcie->reset_gpio)) {
 		gpio_set_value_cansleep(imx6_pcie->reset_gpio, 0);
-		mdelay(1);
+		mdelay(150);
 		gpio_set_value_cansleep(imx6_pcie->reset_gpio, 1);
 	}
+	#endif
+	
 	return 0;
 
 err_pcie_axi:
