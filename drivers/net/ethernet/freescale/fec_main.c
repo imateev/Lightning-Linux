@@ -1162,13 +1162,16 @@ static void
 fec_timeout(struct net_device *ndev)
 {
 	struct fec_enet_private *fep = netdev_priv(ndev);
+	#ifndef CONFIG_AURALIC_MINI //eth driver for aries
 	struct bufdesc *bdp, *bdp1;
 	unsigned short status;
 	int i;
 	uint events = 0;
-
+	#endif
+	
 	pr_err("%s: last=%x %x, mask %x\n", __func__, last_ievents, readl(fep->hwp + FEC_IEVENT), readl(fep->hwp + FEC_IMASK));
-	for (i = 0; i < FEC_ENET_MAX_TX_QS; i++) {
+	#ifndef CONFIG_AURALIC_MINI //eth driver for aries
+	for (i = 0; i < fep->num_tx_queues; i++) {
 		struct fec_enet_priv_tx_q *txq = fep->tx_queue[i];
 		bdp = txq->dirty_tx;
 		bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
@@ -1192,7 +1195,7 @@ fec_timeout(struct net_device *ndev)
 	}
 	/* Disable all interrupts */
 	writel(0, fep->hwp + FEC_IMASK);
-	for (i = 0; i < FEC_ENET_MAX_TX_QS; i++) {
+	for (i = 0; i < fep->num_tx_queues; i++) {
 		struct fec_enet_priv_tx_q *txq = fep->tx_queue[i];
 		bdp = txq->dirty_tx;
 		bdp1 = bdp;
@@ -1201,6 +1204,8 @@ fec_timeout(struct net_device *ndev)
 			bdp = fec_enet_get_nextdesc(bdp, &txq->bd);
 		} while (bdp != bdp1);
 	}
+	#endif
+	
 	ndev->stats.tx_errors++;
 
 	fep->delay_work.timeout = true;
