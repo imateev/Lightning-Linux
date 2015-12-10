@@ -761,32 +761,11 @@ static int __init snd_usb_audio_init(void)
 		return -EINVAL;
 	}
 	
-	#ifdef  CONFIG_AURALIC_MINI
-	if(0 > gpio_request(USB_AUDIO_RESET_GPIO, "usb audio reset gpio\n")) // gpio5_8
-    {
-        printk(KERN_DEBUG"auralic request usb audio reset gpio failed!\n");
-        has_usb_audio_reset_gpio = false;
-    }
-    else
-    {
-        printk(KERN_DEBUG"auralic request usb audio reset gpio succes!\n");
-        gpio_direction_output(USB_AUDIO_RESET_GPIO, 1);
-        has_usb_audio_reset_gpio = true;
-    }
-	#endif
-	
 	return usb_register(&usb_audio_driver);
 }
 
 static void __exit snd_usb_audio_cleanup(void)
 {
-    #ifdef  CONFIG_AURALIC_MINI
-    if(true == has_usb_audio_reset_gpio)
-    {
-        gpio_free(USB_AUDIO_RESET_GPIO);
-        has_usb_audio_reset_gpio = false;
-    }
-    #endif
 	usb_deregister(&usb_audio_driver);
 }
 

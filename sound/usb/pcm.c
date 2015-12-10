@@ -39,9 +39,6 @@
 #define SUBSTREAM_FLAG_DATA_EP_STARTED	0
 #define SUBSTREAM_FLAG_SYNC_EP_STARTED	1
 
-#ifdef  CONFIG_AURALIC_MINI
-bool has_usb_audio_reset_gpio = false;
-#endif
 
 /* return the estimated delay based on USB frame counters */
 snd_pcm_uframes_t snd_usb_pcm_delay(struct snd_usb_substream *subs,
@@ -348,14 +345,11 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 			snd_printk(KERN_ERR "%d:%d:%d: usb_set_interface failed (%d)\n",
 				   dev->devnum, fmt->iface, fmt->altsetting, err);
 
-		    #ifdef  CONFIG_AURALIC_MINI
-		    if(true == has_usb_audio_reset_gpio)
-		    {
-		        gpio_set_value(USB_AUDIO_RESET_GPIO, 0);
-		        printk(KERN_DEBUG"auralic reset usb audio card!\n");
-		        msleep(200);
-		        gpio_set_value(USB_AUDIO_RESET_GPIO, 1);
-		    }
+		    #ifdef  CONFIG_AURALIC_GPIO
+		    gpio_set_value(USB_AUDIO_RESET_GPIO, 0);
+		    printk(KERN_ERR"auralic reset usb audio card for interface!\n");
+		    msleep(100);
+		    gpio_set_value(USB_AUDIO_RESET_GPIO, 1);
 		    #endif
 		    
 			return -EIO;

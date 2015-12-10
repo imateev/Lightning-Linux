@@ -30,7 +30,7 @@
 #include <linux/mm.h>
 #include <linux/bitops.h>
 #include <linux/pm_qos.h>
-#ifdef  CONFIG_AURALIC_MINI
+#ifdef  CONFIG_AURALIC_GPIO
 #include <linux/gpio.h>
 #endif
 
@@ -41,8 +41,7 @@
 #include <sound/pcm_oss.h>
 #endif
 
-#ifdef  CONFIG_AURALIC_MINI
-extern bool has_usb_audio_reset_gpio;
+#ifdef  CONFIG_AURALIC_GPIO
 #define  USB_AUDIO_RESET_GPIO    (4*32 + 8) //GPIO5_08
 #endif
 
