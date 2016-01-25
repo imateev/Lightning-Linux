@@ -3247,6 +3247,11 @@ static int sd_info_remove(struct device *dev)
         }
 
 	sdkp = dev_get_drvdata(dev);
+	if(NULL == sdkp)
+	{
+	    printk("sd_remove get NULL sdkp, so terminate sd_remove by auralic!\n");
+	    return 0;
+	}
 	scsi_autopm_get_device(sdkp->device);
 
 	async_synchronize_full_domain(&scsi_sd_probe_domain);
