@@ -18,7 +18,11 @@
 ========== 2016-03-01 ==========
  driver/dma/imx-sdma.c  raw_spinlock_t channel_0_lock  ok
  drivers/net/ethernet/freescale/fec_main.c  fec_timeout improve  not needed
- driver/pci/host/pci-imx6.c  pcie gpio reset ok
+ driver/pci/host/pci-imx6.c  pcie gpio reset ok 
+ **********************************************
+             test by a non-well wlan card
+ **********************************************
+ 
  net/mac80211/Makefile  KBUILD_EXTRA_SYMBOLS=/Linux/net/wireless/Module.symvers not needed
  sound/usb/quirks.c snd_usb_interface_dsd_format_quirks  for dsd256 ok
  

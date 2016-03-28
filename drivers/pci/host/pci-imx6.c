@@ -322,9 +322,15 @@ static int imx6_pcie_deassert_core_reset(struct pcie_port *pp)
         
     	/* Some boards don't have PCIe reset GPIO. */
     	if (gpio_is_valid(imx6_pcie->reset_gpio)) {
+    	    printk("auralic imx6_pcie->reset_gpio valid!\n");
     		gpio_set_value_cansleep(imx6_pcie->reset_gpio, 0);
     		mdelay(150);
     		gpio_set_value_cansleep(imx6_pcie->reset_gpio, 1);
+    	}
+    	else
+    	{
+    	    printk("auralic imx6_pcie->reset_gpio is invalid!\n");
+    		mdelay(150);
     	}
     	
         /*-------------------------------------------*/
