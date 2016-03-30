@@ -1,3 +1,6 @@
+KBUILD_EXTRA_SYMBOLS  = /home/hu/release/linux-4.1.18/Lightning-Linux/net/wireless/Module.symvers
+KBUILD_EXTRA_SYMBOLS += /home/hu/release/linux-4.1.18/Lightning-Linux/net/mac80211/Module.symvers
+
 obj-$(CONFIG_ATH5K)		+= ath5k/
 obj-$(CONFIG_ATH9K_HW)		+= ath9k/
 obj-$(CONFIG_CARL9170)		+= carl9170/
