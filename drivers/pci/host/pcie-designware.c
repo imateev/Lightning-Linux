@@ -489,7 +489,8 @@ int dw_pcie_host_init(struct pcie_port *pp)
 				return ret;
 		}
 	}
-
+    
+    
 	if (pp->ops->host_init)
 		pp->ops->host_init(pp);
 

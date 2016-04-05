@@ -743,6 +743,8 @@
 };
 
 &pcie {
+    reset-gpio = <&gpio6 7 0>;
+    wake-up-gpio = <&gpio6 9 0>;
 	status = "okay";
 };
 

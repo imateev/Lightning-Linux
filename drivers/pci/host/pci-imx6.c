@@ -214,6 +214,18 @@ static int imx6q_pcie_abort_handler(unsigned long addr,
 	return 0;
 }
 
+static int imx6_pcie_assert_core_reset2(struct pcie_port *pp)
+{
+	struct imx6_pcie *imx6_pcie = to_imx6_pcie(pp);
+
+	regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
+			IMX6Q_GPR1_PCIE_TEST_PD, 1 << 18);
+	regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
+			IMX6Q_GPR1_PCIE_REF_CLK_EN, 0 << 16);
+
+	return 0;
+}
+
 static int imx6_pcie_assert_core_reset(struct pcie_port *pp)
 {
 	struct imx6_pcie *imx6_pcie = to_imx6_pcie(pp);
@@ -475,8 +487,8 @@ static int imx6_pcie_start_link(struct pcie_port *pp)
 }
 
 static void imx6_pcie_host_init(struct pcie_port *pp)
-{
-	imx6_pcie_assert_core_reset(pp);
+{    		
+	imx6_pcie_assert_core_reset2(pp);
 
 	imx6_pcie_init_phy(pp);
 
@@ -572,11 +584,29 @@ static struct pcie_host_ops imx6_pcie_host_ops = {
 	.host_init = imx6_pcie_host_init,
 };
 
+
+#ifdef CONFIG_AURALIC_PCIE_SHUTDOWN
+struct platform_device * aura_pdev = NULL;
+
+void aura_imx6_pcie_shutdown(void)
+{
+	struct imx6_pcie *imx6_pcie = NULL;
+    if(NULL != aura_pdev)
+    {
+        printk("\n\nauralic shutdown pcie lilnk for reboot!\n");
+        imx6_pcie = platform_get_drvdata(aura_pdev);
+	    /* bring down link, so bootloader gets clean state in case of reboot */
+	    imx6_pcie_assert_core_reset(&imx6_pcie->pp);
+	}
+} 
+EXPORT_SYMBOL_GPL(aura_imx6_pcie_shutdown);
+#endif 
+
 static int __init imx6_add_pcie_port(struct pcie_port *pp,
 			struct platform_device *pdev)
 {
 	int ret;
-
+    
 	if (IS_ENABLED(CONFIG_PCI_MSI)) {
 		pp->msi_irq = platform_get_irq_byname(pdev, "msi");
 		if (pp->msi_irq <= 0) {
@@ -596,7 +626,6 @@ static int __init imx6_add_pcie_port(struct pcie_port *pp,
 
 	pp->root_bus_nr = -1;
 	pp->ops = &imx6_pcie_host_ops;
-
 	ret = dw_pcie_host_init(pp);
 	if (ret) {
 		dev_err(&pdev->dev, "failed to initialize host\n");
@@ -605,23 +634,6 @@ static int __init imx6_add_pcie_port(struct pcie_port *pp,
 
 	return 0;
 }
-
-#ifdef CONFIG_AURALIC_PCIE_SHUTDOWN
-struct platform_device * aura_pdev = NULL;
-
-void aura_imx6_pcie_shutdown(void)
-{
-	struct imx6_pcie *imx6_pcie = NULL;
-    if(NULL != aura_pdev)
-    {
-        printk("\n\nauralic shutdown pcie lilnk for reboot!\n");
-        imx6_pcie = platform_get_drvdata(aura_pdev);
-	    /* bring down link, so bootloader gets clean state in case of reboot */
-	    imx6_pcie_assert_core_reset(&imx6_pcie->pp);
-	}
-} 
-EXPORT_SYMBOL_GPL(aura_imx6_pcie_shutdown);
-#endif 
 
 static int __init imx6_pcie_probe(struct platform_device *pdev)
 {
@@ -681,7 +693,8 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 			"pcie clock source missing or invalid\n");
 		return PTR_ERR(imx6_pcie->pcie);
 	}
-
+	
+    
 	/* Grab GPR config register range */
 	imx6_pcie->iomuxc_gpr =
 		 syscon_regmap_lookup_by_compatible("fsl,imx6q-iomuxc-gpr");
@@ -689,7 +702,7 @@ static int __init imx6_pcie_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "unable to find iomuxc registers\n");
 		return PTR_ERR(imx6_pcie->iomuxc_gpr);
 	}
-
+    
 	ret = imx6_add_pcie_port(pp, pdev);
 	if (ret < 0)
 		return ret;
