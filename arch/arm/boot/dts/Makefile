@@ -138,6 +138,7 @@ dtb-$(CONFIG_ARCH_MXC) += \
 	imx6q-sabrelite.dtb \
 	imx6q-aries.dtb \
 	imx6q-mini.dtb \
+	imx6q-altair.dtb \
 	imx6q-sabresd.dtb \
 	imx6q-sabresd-enetirq.dtb \
 	imx6q-sabresd-uart.dtb \
