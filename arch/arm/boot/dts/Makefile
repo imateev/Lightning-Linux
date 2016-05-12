@@ -296,6 +296,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-sabreauto.dtb \
 	imx6q-sabrelite.dtb \
 	imx6q-aries.dtb \
+	imx6q-altair.dtb \
 	imx6q-mini.dtb \
 	imx6q-sabresd.dtb \
 	imx6q-sbc6x.dtb \
