@@ -351,8 +351,13 @@ static int snd_usb_audio_create(struct usb_interface *intf,
 		return -ENXIO;
 	}
 
+	#if defined(CONFIG_AURALIC_SOUND_CARD_ID_BIND)
+	err = snd_card_new(&intf->dev, idx, id[idx], THIS_MODULE,
+			   0, &card);
+    #else
 	err = snd_card_new(&intf->dev, index[idx], id[idx], THIS_MODULE,
 			   0, &card);
+    #endif
 	if (err < 0) {
 		dev_err(&dev->dev, "cannot create card instance %d\n", idx);
 		return err;
@@ -509,6 +514,31 @@ static int usb_audio_probe(struct usb_interface *intf,
 		/* it's a fresh one.
 		 * now look for an empty slot and create a new card instance
 		 */
+		#if defined(CONFIG_AURALIC_SOUND_CARD_ID_BIND)
+		if (enable[0] && ! usb_chip[0] &&
+			    (0x1511 == USB_ID_VENDOR(id)) &&
+			    (0x38 == USB_ID_PRODUCT(id) || 0x40 == USB_ID_PRODUCT(id) || 0x42 == USB_ID_PRODUCT(id))) {
+				err = snd_usb_audio_create(intf, dev, 0, quirk,
+							   &chip);
+				if (err < 0)
+					goto __error;
+				chip->pm_intf = intf;
+				printk(KERN_DEBUG"auralic cread sound card0 for %04x:%04x.\n", USB_ID_VENDOR(id), USB_ID_PRODUCT(id));
+			}
+		else
+		for (i = 1; i < SNDRV_CARDS; i++)
+			if (enable[i] && ! usb_chip[i] &&
+			    (vid[i] == -1 || vid[i] == USB_ID_VENDOR(id)) &&
+			    (pid[i] == -1 || pid[i] == USB_ID_PRODUCT(id))) {
+				err = snd_usb_audio_create(intf, dev, i, quirk,
+							   &chip);
+				if (err < 0)
+					goto __error;
+				chip->pm_intf = intf;
+				printk(KERN_DEBUG"auralic cread sound card%d for %04x:%04x.\n", i, USB_ID_VENDOR(id), USB_ID_PRODUCT(id));
+				break;
+			}
+		#else
 		for (i = 0; i < SNDRV_CARDS; i++)
 			if (enable[i] && ! usb_chip[i] &&
 			    (vid[i] == -1 || vid[i] == USB_ID_VENDOR(id)) &&
@@ -520,6 +550,8 @@ static int usb_audio_probe(struct usb_interface *intf,
 				chip->pm_intf = intf;
 				break;
 			}
+	    #endif
+	    
 		if (!chip) {
 			dev_err(&dev->dev, "no available usb audio device\n");
 			err = -ENODEV;

@@ -215,7 +215,6 @@ int snd_card_new(struct device *parent, int idx, const char *xid,
 	if (snd_BUG_ON(!card_ret))
 		return -EINVAL;
 	*card_ret = NULL;
-
 	if (extra_size < 0)
 		extra_size = 0;
 	card = kzalloc(sizeof(*card) + extra_size, GFP_KERNEL);
