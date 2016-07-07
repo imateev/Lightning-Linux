@@ -517,7 +517,14 @@ static int usb_audio_probe(struct usb_interface *intf,
 		#if defined(CONFIG_AURALIC_SOUND_CARD_ID_BIND)
 		if (enable[0] && ! usb_chip[0] &&
 			    (0x1511 == USB_ID_VENDOR(id)) &&
-			    (0x38 == USB_ID_PRODUCT(id) || 0x40 == USB_ID_PRODUCT(id) || 0x42 == USB_ID_PRODUCT(id))) {
+			    #if defined(CONFIG_AURALIC_ARIES)
+			    (0x38 == USB_ID_PRODUCT(id))
+			    #elif defined(CONFIG_AURALIC_MINI)
+			    (0x40 == USB_ID_PRODUCT(id))
+			    #elif defined(CONFIG_AURALIC_ALTAIR)
+			    (0x42 == USB_ID_PRODUCT(id))
+			    #endif
+			    ) {
 				err = snd_usb_audio_create(intf, dev, 0, quirk,
 							   &chip);
 				if (err < 0)
