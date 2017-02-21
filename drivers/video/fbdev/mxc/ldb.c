@@ -294,6 +294,51 @@ static const struct of_device_id ldb_dt_ids[] = {
 };
 MODULE_DEVICE_TABLE(of, ldb_dt_ids);
 
+static int g_ldb_mode;
+
+#define LDB_SPL_DI0	1
+#define LDB_SPL_DI1	2
+#define LDB_DUL_DI0	3
+#define LDB_DUL_DI1	4
+#define LDB_SIN0	5
+#define LDB_SIN1	6
+#define LDB_SEP0	7
+#define LDB_SEP1	8
+
+static int parse_ldb_mode(char *mode)
+{
+	int ldb_mode;
+
+	if (!strcmp(mode, "spl0"))
+		ldb_mode = LDB_SPL_DI0;
+	else if (!strcmp(mode, "spl1"))
+		ldb_mode = LDB_SPL_DI1;
+	else if (!strcmp(mode, "dul0"))
+		ldb_mode = LDB_DUL_DI0;
+	else if (!strcmp(mode, "dul1"))
+		ldb_mode = LDB_DUL_DI1;
+	else if (!strcmp(mode, "sin0"))
+		ldb_mode = LDB_SIN0;
+	else if (!strcmp(mode, "sin1"))
+		ldb_mode = LDB_SIN1;
+	else if (!strcmp(mode, "sep0"))
+		ldb_mode = LDB_SEP0;
+	else if (!strcmp(mode, "sep1"))
+		ldb_mode = LDB_SEP1;
+	else
+		ldb_mode = -EINVAL;
+
+	return ldb_mode;
+}
+
+static int __init get_ldb_mode(char *options)
+{
+	g_ldb_mode = parse_ldb_mode(options);
+	return (g_ldb_mode < 0) ? 0 : 1;
+}
+__setup("ldb=", get_ldb_mode);
+
+
 static int ldb_init(struct mxc_dispdrv_handle *mddh,
 		    struct mxc_dispdrv_setting *setting)
 {
@@ -323,6 +368,9 @@ static int ldb_init(struct mxc_dispdrv_handle *mddh,
 	chan->fbi = fbi;
 
 	fb_videomode_from_videomode(&chan->vm, &fb_vm);
+
+	INIT_LIST_HEAD(&fbi->modelist);
+	fb_add_videomode(&fb_vm, &fbi->modelist);
 	fb_videomode_to_var(&fbi->var, &fb_vm);
 
 	setting->crtc = chan->crtc;
@@ -730,7 +778,15 @@ static int ldb_probe(struct platform_device *pdev)
 		}
 	}
 
-	ldb->dual_mode = of_property_read_bool(np, "dual-mode");
+	if (of_machine_is_compatible("myzr,myimx6")) {
+		if ((g_ldb_mode == LDB_DUL_DI0) || (g_ldb_mode == LDB_DUL_DI1))
+			ldb->dual_mode = true;
+		else
+			ldb->dual_mode = of_property_read_bool(np, "dual-mode");
+	} else {
+		ldb->dual_mode = of_property_read_bool(np, "dual-mode");
+	}
+
 	if (ldb->dual_mode) {
 		if (ldb_info->dual_cap) {
 			dev_info(dev, "dual mode\n");
@@ -786,8 +842,19 @@ static int ldb_probe(struct platform_device *pdev)
 		chan->ldb = ldb;
 		chan->online = true;
 
-		is_primary = of_property_read_bool(child, "primary");
-
+		if (of_machine_is_compatible("myzr,myimx6")) {
+			if (g_ldb_mode <= 0 ) {
+				is_primary = of_property_read_bool(child, "primary");
+			} else {
+				if (((g_ldb_mode - 1) % 2) == i)
+					is_primary = true;
+				else
+					is_primary = false;
+			}
+		} else {
+			is_primary = of_property_read_bool(child, "primary");
+		}
+		
 		if (ldb->bus_mux_num == 1 || (ldb->primary_chno == -1 &&
 		    (is_primary || ldb->spl_mode || ldb->dual_mode)))
 			ldb->primary_chno = chan->chno;
