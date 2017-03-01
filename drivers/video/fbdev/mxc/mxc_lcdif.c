@@ -67,7 +67,7 @@ static int lcdif_init(struct mxc_dispdrv_handle *disp,
 	if (ret < 0)
 		return ret;
 
-	setting->default_bpp = 24;
+	setting->default_bpp = 32;
 
 	ret = fb_find_mode(&setting->fbi->var, setting->fbi, setting->dft_mode_str,
 				modedb, modedb_sz, NULL, setting->default_bpp);
