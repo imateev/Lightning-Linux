@@ -333,7 +333,8 @@ static void fec_dump(struct net_device *ndev)
 
 	txq = fep->tx_queue[0];
 	bdp = txq->tx_bd_base;
-
+	
+    #if 0 //auralic, limit the log print
 	do {
 		pr_info("%3u %c%c 0x%04x 0x%08lx %4u %p\n",
 			index,
@@ -344,6 +345,7 @@ static void fec_dump(struct net_device *ndev)
 		bdp = fec_enet_get_nextdesc(bdp, fep, 0);
 		index++;
 	} while (bdp != txq->tx_bd_base);
+	#endif
 }
 
 static inline bool is_ipv4_pkt(struct sk_buff *skb)
