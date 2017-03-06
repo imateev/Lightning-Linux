@@ -72,6 +72,9 @@ struct scsi_disk {
 	u32		unmap_granularity;
 	u32		unmap_alignment;
 	u32		index;
+	#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	u32     auralic_index;
+	#endif
 	unsigned int	physical_block_size;
 	unsigned int	max_medium_access_timeouts;
 	unsigned int	medium_access_timed_out;

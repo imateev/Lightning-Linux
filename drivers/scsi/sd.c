@@ -68,6 +68,17 @@
 #include "scsi_priv.h"
 #include "scsi_logging.h"
 
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND // hyf
+#include <linux/mutex.h>
+#include <linux/proc_fs.h>
+#include <linux/kthread.h>
+#define  SD_PROC_FILE       "sdinfo"
+
+extern void device_pm_add(struct device *dev);
+extern void device_pm_remove(struct device *dev);
+static void sdinfo_shutdown(struct device *dev);
+#endif
+
 MODULE_AUTHOR("Eric Youngdale");
 MODULE_DESCRIPTION("SCSI disk (sd) driver");
 MODULE_LICENSE("GPL");
@@ -96,6 +107,75 @@ MODULE_ALIAS_SCSI_DEVICE(TYPE_RBC);
 #define SD_MINORS	16
 #else
 #define SD_MINORS	0
+#endif
+
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+
+#define MAX_DISK_COUNT_SATA         7 
+#define SATA_DISK_START_INDEX       0
+bool sata_disk_used[MAX_DISK_COUNT_SATA];
+
+#define MAX_DISK_COUNT_PER_USB      7 
+#define USB0_DISK_START_INDEX       0
+#define USB1_DISK_START_INDEX       MAX_DISK_COUNT_PER_USB
+bool usb0_disk_used[MAX_DISK_COUNT_PER_USB];
+bool usb1_disk_used[MAX_DISK_COUNT_PER_USB];
+
+int get_sata_disk_index(void)
+{
+    int i = 0;
+
+    for (i=0; i < MAX_DISK_COUNT_SATA; i++)
+    {
+        if(false == sata_disk_used[i])
+        {
+            sata_disk_used[i] = true;
+            break;
+        }
+    }
+
+    return i;
+}
+
+void put_sata_disk_index(int index)
+{
+    if(MAX_DISK_COUNT_SATA <= index)
+        return;
+    sata_disk_used[index] = false;
+}
+
+int get_usb_disk_index(int usb_port)
+{
+    int i = 0;
+    bool *disk_used = NULL;
+    
+    if(0 == usb_port)
+        disk_used = usb0_disk_used;
+    else
+        disk_used = usb1_disk_used;
+
+    for (i=0; i < MAX_DISK_COUNT_PER_USB; i++)
+    {
+        if(false == disk_used[i])
+        {
+            disk_used[i] = true;
+            break;
+        }
+    }
+
+    return i;
+}
+
+void put_usb_disk_index(int usb_port, int index)
+{
+    if(MAX_DISK_COUNT_PER_USB <= index)
+        return;
+
+    if(0 == usb_port)
+        usb0_disk_used[index] = false;
+    else
+        usb1_disk_used[index] = false;
+}
 #endif
 
 static void sd_config_discard(struct scsi_disk *, unsigned int);
@@ -2905,6 +2985,88 @@ static void sd_probe_async(void *data, async_cookie_t cookie)
 	put_device(&sdkp->dev);
 }
 
+
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+DEFINE_MUTEX(sdinfo_lock);// used to protect sd_info
+struct device *sd_info[100];
+bool is_stopped = false;
+struct task_struct *sdinfo_task = NULL;
+
+struct list_head sd_event_list;
+spinlock_t sd_event_lock;
+
+typedef enum sd_event_enum
+{
+    SD_START = 0,
+    SD_STOP  = 1
+}sd_event_e;
+
+struct sd_event_t
+{
+    struct list_head list;
+    sd_event_e event;
+};
+
+char check_sd_info(struct device *dev)
+{
+    int i;    
+    bool havespace = false;
+        
+    for(i=0; i < 100; i++)
+    {
+        if(dev == sd_info[i])
+        {
+            return 1; // already exist
+        }
+
+        if(NULL == sd_info[i])
+        {
+            havespace = true; // empty
+        }
+    }
+
+    return true == havespace ? 0 : 2; // 0:have space for new   2:be full
+}
+
+void clean_one_sd_info(struct device *dev)
+{
+    int i;
+    for(i=0; i < 100; i++)
+    {
+        if(dev == sd_info[i])
+            sd_info[i] = NULL;
+    }
+}
+
+char set_sd_info(struct device *dev)
+{
+    int i;    
+    
+    for(i=0; i < 100; i++)
+    {
+        if(dev == sd_info[i])
+        {
+            return 1; // already exist
+        }
+    }
+    
+    for(i=0; i < 100; i++)
+    {
+        if(NULL == sd_info[i])
+        {
+            sd_info[i] = dev;
+            break;
+        }
+    }
+
+    if(i != 100)
+        return 0; // set ok
+    else
+        return 2; // full
+}
+
+#endif
+
 /**
  *	sd_probe - called during driver initialization and whenever a
  *	new scsi device is attached to the system. It is called once
@@ -2932,6 +3094,18 @@ static int sd_probe(struct device *dev)
 	int error;
 
 	scsi_autopm_get_device(sdp);
+	
+    #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+    int usb_index;
+    if(true == is_stopped)
+	{
+	    set_sd_info(dev);
+	    device_pm_remove(dev);
+	    printk("disk:0x%x been cached by start/stop module!\n", (unsigned int)dev);
+	    return 0;
+	}
+    #endif
+
 	error = -ENODEV;
 	if (sdp->type != TYPE_DISK && sdp->type != TYPE_MOD && sdp->type != TYPE_RBC)
 		goto out;
@@ -2947,7 +3121,12 @@ static int sd_probe(struct device *dev)
 	gd = alloc_disk(SD_MINORS);
 	if (!gd)
 		goto out_free;
-
+		
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+reget:
+	if(AURALIC_SATA_ID != sdp->host->auralic_id)
+	{
+#endif
 	do {
 		if (!ida_pre_get(&sd_index_ida, GFP_KERNEL))
 			goto out_put;
@@ -2961,8 +3140,74 @@ static int sd_probe(struct device *dev)
 		sdev_printk(KERN_WARNING, sdp, "sd_probe: memory exhausted.\n");
 		goto out_put;
 	}
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	}
+// don't bind usb disk name for mini, only bind hdd disk name
+#if defined(CONFIG_AURALIC_MINI) || defined(CONFIG_AURALIC_ALTAIR) || defined(CONFIG_AURALIC_POLARIS)
+	if(AURALIC_SATA_ID == sdp->host->auralic_id)
+    {   // sata
+		usb_index = get_sata_disk_index();
+		if(MAX_DISK_COUNT_SATA <= usb_index)
+			error = MAX_DISK_COUNT_SATA;
+		else
+        {
+			sdkp->auralic_index = usb_index;
+			error = sd_format_disk_name("hd", 0, gd->disk_name, DISK_NAME_LEN);
+        }
+	}
+	else
+	{
 
 	error = sd_format_disk_name("sd", index, gd->disk_name, DISK_NAME_LEN);
+    }
+#else
+        if( (MAX_DISK_COUNT_PER_USB * 2) > index)
+                goto reget;
+    
+        sdkp->auralic_index = MAX_DISK_COUNT_PER_USB;
+        if(AURALIC_USB1_ID == sdp->host->auralic_id)
+        {
+                usb_index = get_usb_disk_index(1);
+                if(MAX_DISK_COUNT_PER_USB <= usb_index)
+                        error = MAX_DISK_COUNT_PER_USB;
+                else
+                {
+                        sdkp->auralic_index = usb_index;
+                        error = sd_format_disk_name("sd", USB1_DISK_START_INDEX + usb_index, 
+                                                    gd->disk_name, DISK_NAME_LEN);
+                }
+        }
+        else if(AURALIC_USB0_ID == sdp->host->auralic_id)
+        {
+                usb_index = get_usb_disk_index(0);
+                if(MAX_DISK_COUNT_PER_USB <= usb_index)
+                        error = MAX_DISK_COUNT_PER_USB;
+                else
+                {
+                        sdkp->auralic_index = usb_index;
+                        error = sd_format_disk_name("sd", USB0_DISK_START_INDEX + usb_index, 
+                                                   gd->disk_name, DISK_NAME_LEN);
+                }
+        }
+        else if(AURALIC_SATA_ID == sdp->host->auralic_id)
+        {   // sata
+                usb_index = get_sata_disk_index();
+                if(MAX_DISK_COUNT_SATA <= usb_index)
+                error = MAX_DISK_COUNT_SATA;
+                else
+                {
+                        sdkp->auralic_index = usb_index;
+                        error = sd_format_disk_name("hd", SATA_DISK_START_INDEX + usb_index, 
+                                              gd->disk_name, DISK_NAME_LEN);
+                }
+        }
+        else
+                error = sd_format_disk_name("sd-", index, gd->disk_name, DISK_NAME_LEN);   
+#endif  // end of #ifdef  CONFIG_AURALIC_MINI
+#else
+                error = sd_format_disk_name("sd", index, gd->disk_name, DISK_NAME_LEN);     
+#endif // end of #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+
 	if (error) {
 		sdev_printk(KERN_WARNING, sdp, "SCSI disk (sd) name length exceeded.\n");
 		goto out_free_index;
@@ -3000,7 +3245,18 @@ static int sd_probe(struct device *dev)
 	return 0;
 
  out_free_index:
+ #ifdef CONFIG_AURALIC_DISK_NAME_BIND
+        if(AURALIC_USB1_ID == sdp->host->auralic_id)
+                put_usb_disk_index(1, sdkp->auralic_index);
+        else if(AURALIC_USB0_ID == sdp->host->auralic_id)
+                put_usb_disk_index(0, sdkp->auralic_index);
+        else if(AURALIC_SATA_ID == sdp->host->auralic_id)
+                put_sata_disk_index(sdkp->auralic_index);
+ #endif
 	spin_lock(&sd_index_lock);
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	if(AURALIC_SATA_ID != sdp->host->auralic_id)
+#endif
 	ida_remove(&sd_index_ida, index);
 	spin_unlock(&sd_index_lock);
  out_put:
@@ -3011,6 +3267,55 @@ static int sd_probe(struct device *dev)
 	scsi_autopm_put_device(sdp);
 	return error;
 }
+
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+/**
+ *	sd_info_remove - called whenever a scsi disk (previously recognized by
+ *	sd_probe) is detached from the system. It is called (potentially
+ *	multiple times) during sd module unload.
+ *	@sdp: pointer to mid level scsi device object
+ *
+ *	Note: this function is invoked from the scsi mid-level.
+ *	This function potentially frees up a device name (e.g. /dev/sdc)
+ *	that could be re-used by a subsequent sd_probe().
+ *	This function is not called when the built-in sd driver is "exit-ed".
+ **/
+static int sd_info_remove(struct device *dev)
+{
+	struct scsi_disk *sdkp;
+	dev_t devt;
+        if(1 == check_sd_info(dev)) // already been removed by sd_info_remove
+   	{
+                printk("disk:0x%x has been removed by sd_remove!\n", (unsigned int)dev);
+                return 0;
+        }
+
+	sdkp = dev_get_drvdata(dev);
+	devt = disk_devt(sdkp->disk);
+	if(NULL == sdkp)
+	{
+	    printk("sd_remove get NULL sdkp, so terminate sd_remove by auralic!\n");
+	    return 0;
+	}
+	scsi_autopm_get_device(sdkp->device);
+
+	async_synchronize_full_domain(&scsi_sd_pm_domain);
+	async_synchronize_full_domain(&scsi_sd_probe_domain);
+	device_del(&sdkp->dev);
+	del_gendisk(sdkp->disk);
+	sdinfo_shutdown(dev);
+
+	blk_register_region(devt, SD_MINORS, NULL,
+			    sd_default_probe, NULL, NULL);
+
+	mutex_lock(&sd_ref_mutex);
+	dev_set_drvdata(dev, NULL);
+	put_device(&sdkp->dev);
+	mutex_unlock(&sd_ref_mutex);
+
+	return 0;
+}
+#endif
 
 /**
  *	sd_remove - called whenever a scsi disk (previously recognized by
@@ -3027,6 +3332,19 @@ static int sd_remove(struct device *dev)
 {
 	struct scsi_disk *sdkp;
 	dev_t devt;
+	
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+        mutex_lock(&sdinfo_lock);
+	if(1 == check_sd_info(dev)) // already be removed by sd_remove
+	{
+    	        printk("disk:0x%x has been removed by start/stop module!\n", (unsigned int)dev);
+    	        clean_one_sd_info(dev);
+                mutex_unlock(&sdinfo_lock);
+                device_pm_add(dev);
+    	        return 0;
+	}
+        mutex_unlock(&sdinfo_lock);
+#endif
 
 	sdkp = dev_get_drvdata(dev);
 	devt = disk_devt(sdkp->disk);
@@ -3062,8 +3380,20 @@ static void scsi_disk_release(struct device *dev)
 {
 	struct scsi_disk *sdkp = to_scsi_disk(dev);
 	struct gendisk *disk = sdkp->disk;
+
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+    if(AURALIC_USB1_ID == sdkp->device->host->auralic_id)
+        put_usb_disk_index(1, sdkp->auralic_index);
+    else if(AURALIC_USB0_ID == sdkp->device->host->auralic_id)
+        put_usb_disk_index(0, sdkp->auralic_index);
+    else if(AURALIC_SATA_ID == sdkp->device->host->auralic_id)
+        put_sata_disk_index(sdkp->auralic_index);
+#endif
 	
 	spin_lock(&sd_index_lock);
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+	if(AURALIC_SATA_ID != sdkp->device->host->auralic_id)
+#endif
 	ida_remove(&sd_index_ida, sdkp->index);
 	spin_unlock(&sd_index_lock);
 
@@ -3109,6 +3439,33 @@ static int sd_start_stop_device(struct scsi_disk *sdkp, int start)
 
 	return 0;
 }
+
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+static void sdinfo_shutdown(struct device *dev)
+{
+	struct scsi_disk *sdkp = dev_get_drvdata(dev);
+
+	if (!sdkp)
+		return;         /* this can happen */
+
+	if (pm_runtime_suspended(dev))
+		return;
+
+	if (sdkp->WCE && sdkp->media_present) {
+		sd_printk(KERN_NOTICE, sdkp, "Synchronizing SCSI cache\n");
+		sd_sync_cache(sdkp);
+	}
+
+	if(0 == sd_start_stop_device(sdkp, 0))
+	{
+		printk("stop %s success!\n", sdkp->disk->disk_name);
+	}
+	else
+	{
+		printk("stop %s failed!\n", sdkp->disk->disk_name);
+	}
+}
+#endif
 
 /*
  * Send a SYNCHRONIZE CACHE instruction down to the device through
@@ -3188,6 +3545,163 @@ static int sd_resume(struct device *dev)
 	return sd_start_stop_device(sdkp, 1);
 }
 
+#ifdef CONFIG_AURALIC_DISK_NAME_BIND
+ssize_t sdproc_read(struct file *filp, char __user *usrbuf, size_t size, loff_t *offset)
+{
+    return 0;
+}
+
+int init_sd_info(void)
+{
+    int i;
+    
+    for(i=0; i < 100; i++)
+    {
+        sd_info[i] = NULL;
+    }
+
+    return 0;
+}
+
+int sdinfo_process_fn(void *data)
+{    
+    char hn; 
+    struct Scsi_Host *shost = NULL;
+    struct scsi_device *sdev = NULL;
+    struct scsi_disk *sdisk = NULL;
+    struct sd_event_t *event = NULL;
+    	
+	while (!kthread_should_stop()) {
+	
+		set_current_state(TASK_INTERRUPTIBLE);
+		
+		if(list_empty(&sd_event_list)) 
+		{
+			schedule();
+			continue;
+		}
+		__set_current_state(TASK_RUNNING);
+
+        while(!list_empty(&sd_event_list))
+        {
+            spin_lock(&sd_event_lock);
+            event = list_entry(sd_event_list.next, struct sd_event_t, list);
+            list_del(&event->list);
+            spin_unlock(&sd_event_lock);
+
+            printk(KERN_INFO"process %s event\n", SD_START == event->event ? "start" : "stop");
+            
+            if(SD_START == event->event)
+            {
+                int i;
+                is_stopped = false;
+                for(i=0; i < 100; i++)
+                {
+                    if(NULL != sd_info[i])
+                    {
+                        printk("probe disk:0x%x by start/stop module!\n", (unsigned int)sd_info[i]);
+                        device_pm_add(sd_info[i]);
+                        sd_probe(sd_info[i]);
+                        sd_info[i] = NULL;
+                    }
+                }
+            }
+            else if(SD_STOP == event->event)
+            {
+                is_stopped = true;
+                mutex_lock(&sdinfo_lock);
+                for(hn=0; hn < 100; hn++)
+                {
+                    if(NULL == (shost=scsi_host_lookup(hn)))
+                        continue;
+                    shost_for_each_device(sdev, shost)
+                    {
+                        if(NULL == sdev)
+                            continue;
+                        sdisk = dev_get_drvdata(&sdev->sdev_gendev);
+                        if(NULL == sdisk)
+                            continue;
+                        
+                        switch(check_sd_info(&sdev->sdev_gendev))
+                        {
+                            case 0: // have space for new         
+                                sd_info_remove(&sdev->sdev_gendev);
+                                set_sd_info(&sdev->sdev_gendev);                                 
+                                device_pm_remove(&sdev->sdev_gendev);
+                            break;
+
+                            case 1: // already been removed
+                                printk("%s already been stoped!\n", sdisk->disk->disk_name);
+                            break;
+
+                            case 2: // sd_info be full
+                            default:
+                                printk("sd_info is full, can't stop %s!\n", sdisk->disk->disk_name);
+                            break;
+                        }
+                    }
+                    
+                    scsi_host_put(shost);
+                }
+                mutex_unlock(&sdinfo_lock);
+            }
+
+            kfree(event);
+            event = NULL;
+        }
+		
+	}
+	__set_current_state(TASK_RUNNING);
+
+	printk("sdinfo_process_fn exiting\n");
+	
+	return 0;
+}
+
+
+static ssize_t sdproc_write(struct file *filp, const char __user *usr_buf,
+                             size_t count, loff_t *f_pos)
+{    
+    char len, buff[100] = {0};
+    struct sd_event_t * event;
+
+    len = count < 100 ? count : 99;
+    if(0 != copy_from_user(buff, usr_buf, len))
+    {
+        goto out;
+    }
+    
+    buff[99] = '\0';
+
+    event = (struct sd_event_t *)kzalloc(sizeof(struct sd_event_t), GFP_KERNEL);
+    if(NULL == event)
+        goto out;
+        
+    if(sizeof("stop") == count && 0 == strncmp(buff, "stop", 4))
+    {
+        event->event = SD_STOP;
+    }
+    else if(sizeof("start") == count && 0 == strncmp(buff, "start", 5))
+    {
+        event->event = SD_START;
+    }
+
+    spin_lock(&sd_event_lock);
+    list_add(&event->list, &sd_event_list);
+    spin_unlock(&sd_event_lock);
+
+    wake_up_process(sdinfo_task);
+
+out:
+    return count;
+}
+
+static const struct  file_operations sdproc_op = {
+    .read  = sdproc_read,
+    .write = sdproc_write,
+};
+#endif
+
 /**
  *	init_sd - entry point for this driver (both when built in or when
  *	a module).
@@ -3199,6 +3713,33 @@ static int __init init_sd(void)
 	int majors = 0, i, err;
 
 	SCSI_LOG_HLQUEUE(3, printk("init_sd: sd driver entry point\n"));
+
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+        INIT_LIST_HEAD(&sd_event_list);
+        spin_lock_init(&sd_event_lock);
+        init_sd_info();
+        /* create proc file /proc/sdinfo */
+        if (NULL == proc_create(SD_PROC_FILE, 0755, NULL, &sdproc_op))    
+        {
+                pr_err("create /proc/%s failed!\n", SD_PROC_FILE);
+                return -ENOMEM;
+        }
+
+        sdinfo_task = kthread_run(sdinfo_process_fn, NULL, "sdinfod");
+        if (IS_ERR(sdinfo_task)) 
+        {
+                pr_err("create sdinfo thread failed!\n");
+                return -ENOMEM;
+        }
+        
+        for (i=0; i < MAX_DISK_COUNT_SATA; i++)
+                sata_disk_used[i] = false;
+                
+        for (i=0; i < MAX_DISK_COUNT_PER_USB; i++)
+                usb0_disk_used[i] = false;
+        for (i=0; i < MAX_DISK_COUNT_PER_USB; i++)
+                usb1_disk_used[i] = false;
+#endif
 
 	for (i = 0; i < SD_MAJORS; i++) {
 		if (register_blkdev(sd_major(i), "sd") != 0)
@@ -3260,6 +3801,13 @@ static void __exit exit_sd(void)
 	int i;
 
 	SCSI_LOG_HLQUEUE(3, printk("exit_sd: exiting sd driver\n"));
+
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+    if (sdinfo_task)
+        kthread_stop(sdinfo_task);
+
+	remove_proc_entry(SD_PROC_FILE, NULL);        
+#endif
 
 	scsi_unregister_driver(&sd_template.gendrv);
 	mempool_destroy(sd_cdb_pool);

@@ -3732,7 +3732,10 @@ void ata_scsi_scan_host(struct ata_port *ap, int sync)
 				id = dev->devno;
 			else
 				channel = link->pmp;
-
+            #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+            ap->scsi_host->auralic_id = AURALIC_SATA_ID;
+            #endif
+                        
 			sdev = __scsi_add_device(ap->scsi_host, channel, id, 0,
 						 NULL);
 			if (!IS_ERR(sdev)) {

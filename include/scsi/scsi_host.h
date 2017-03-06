@@ -539,6 +539,14 @@ enum scsi_host_state {
 	SHOST_DEL_RECOVERY,
 };
 
+#ifdef  CONFIG_AURALIC_DISK_NAME_BIND 
+enum auralic_disk_ids {
+        AURALIC_USB0_ID = 1,
+        AURALIC_USB1_ID,
+        AURALIC_SATA_ID,
+};
+#endif
+
 struct Scsi_Host {
 	/*
 	 * __devices is protected by the host_lock, but you should
@@ -610,6 +618,10 @@ struct Scsi_Host {
 	 * initialized to 0 in scsi_register.
 	 */
 	unsigned int unique_id;
+	
+    #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
+    enum auralic_disk_ids auralic_id;
+    #endif
 
 	/*
 	 * The maximum length of SCSI commands that this host can accept.
