@@ -36,6 +36,9 @@
 #include <linux/posix_acl.h>
 #include <linux/hash.h>
 #include <asm/uaccess.h>
+#ifdef CONFIG_AURALIC_FILELIST
+#include <linux/auralic_filelist.h>
+#endif
 
 #include "internal.h"
 #include "mount.h"
@@ -2452,6 +2455,71 @@ kern_path_mountpoint(int dfd, const char *name, struct path *path,
 }
 EXPORT_SYMBOL(kern_path_mountpoint);
 
+#ifdef CONFIG_AURALIC_FILELIST
+bool aura_check_path_mache(int dfd, const char __user *pathname, unsigned int lookup_flags)
+{
+    bool ret = false;
+    struct filename *name;
+    struct nameidata nd;
+    struct aura_write_info * info = NULL;
+    
+    while(NULL == info)
+    {
+        info = aura_get_one_info_tmp();
+        if(NULL == info)
+            schedule_timeout_interruptible(HZ/100);
+    }
+    
+    name = user_path_parent(dfd, pathname, &nd, lookup_flags);
+    if(!IS_ERR(name))
+    {
+        info->path = d_path(&nd.path, (char *)info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+        if(!IS_ERR(info->path))
+        {
+            if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+                ret = true;
+        }
+        
+        path_put(&nd.path);
+    	putname(name);
+    }
+
+    aura_put_one_info_tmp(info);
+    
+    return ret;
+}
+
+bool aura_check_create_path_mache(struct path *path)
+{
+    bool ret = false;
+    struct aura_write_info * info = NULL;
+    
+    while(NULL == info)
+    {
+        info = aura_get_one_info_tmp();
+        if(NULL == info)
+            schedule_timeout_interruptible(HZ/100);
+    }
+    
+    if(!IS_ERR(path))
+    {
+        path_get(path);
+        info->path = d_path(path, (char *)info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+        path_put(path);
+        if(!IS_ERR(info->path))
+        {
+            if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+                ret = true;
+        }
+    }
+
+    aura_put_one_info_tmp(info);
+    
+    return ret;
+}
+
+#endif
+
 int __check_sticky(struct inode *dir, struct inode *inode)
 {
 	kuid_t fsuid = current_fsuid();
@@ -2880,16 +2948,26 @@ looked_up:
  * FILE_CREATE will be set in @*opened if the dentry was created and will be
  * cleared otherwise prior to returning.
  */
+#ifdef CONFIG_AURALIC_FILELIST
+static int lookup_open(struct nameidata *nd, struct path *path,
+			struct file *file,
+			const struct open_flags *op,
+			bool got_write, int *opened, struct filename *pathname)
+#else
 static int lookup_open(struct nameidata *nd, struct path *path,
 			struct file *file,
 			const struct open_flags *op,
 			bool got_write, int *opened)
+#endif
 {
 	struct dentry *dir = nd->path.dentry;
 	struct inode *dir_inode = dir->d_inode;
 	struct dentry *dentry;
 	int error;
 	bool need_lookup;
+	#ifdef CONFIG_AURALIC_FILELIST
+    struct aura_write_info *info = NULL;
+    #endif
 
 	*opened &= ~FILE_CREATED;
 	dentry = lookup_dcache(&nd->last, dir, nd->flags, &need_lookup);
@@ -2935,6 +3013,66 @@ static int lookup_open(struct nameidata *nd, struct path *path,
 			goto out_dput;
 		error = vfs_create(dir->d_inode, dentry, mode,
 				   nd->flags & LOOKUP_EXCL);
+        #ifdef CONFIG_AURALIC_FILELIST 
+		if(0 == error && true == vfs_can_access)
+		{
+            if(true == aura_check_create_path_mache(&nd->path))
+		    {
+                info = NULL;
+                while(NULL == info)
+                {
+                    info = aura_get_one_info();
+                    if(NULL == info)
+                        schedule_timeout_interruptible(HZ/100);
+                }
+                path_get(&nd->path);
+                info->path = d_path(&nd->path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+                path_put(&nd->path);
+                if(!IS_ERR(info->path))
+                {
+                    if(true == aura_get_filename_to_buff(pathname->name, info->file, NAME_MAX))
+                    {
+                        int index = strlen(info->path);
+                        info->path[index++] = '/';
+                        info->path[index] = '\0';
+                        if(PATH_MAX - index > strlen(info->file))
+                        {
+                            /* combine file path and file name */
+                            int path_len, file_len;
+                            file_len = strlen(info->file);
+                            path_len = strlen(info->path);
+                            info->path -= file_len;
+                            memcpy(info->path, info->path+file_len, path_len);
+                            memcpy(info->path+path_len, info->file, file_len);
+                            info->path[path_len+file_len]='\0'; 
+							info->iswrite = true;
+                            memset(info->file, 0, NAME_MAX);
+                            aura_start_one_info(info);
+                            info = NULL;
+                        }
+                        else
+                        {
+                            aura_put_one_info(info);
+                            info = NULL;
+                            printk(KERN_DEBUG"%s  line:%d combine filename failed\n", __func__, __LINE__);
+                        }
+                    }
+                    else
+                    {
+                        aura_put_one_info(info);
+                        info = NULL;
+                        printk(KERN_DEBUG"%s  line:%d get filename to buff failed\n", __func__, __LINE__);
+                    }
+                }
+                else
+                {
+                    aura_put_one_info(info);
+                    info = NULL;
+                    printk(KERN_DEBUG"%s  line:%d invalid info->path\n", __func__, __LINE__);
+                }
+            }
+		}
+		#endif 
 		if (error)
 			goto out_dput;
 	}
@@ -3020,7 +3158,11 @@ retry_lookup:
 		 */
 	}
 	mutex_lock(&dir->d_inode->i_mutex);
+	#ifdef CONFIG_AURALIC_FILELIST
+	error = lookup_open(nd, path, file, op, got_write, opened, name);
+	#else
 	error = lookup_open(nd, path, file, op, got_write, opened);
+	#endif
 	mutex_unlock(&dir->d_inode->i_mutex);
 
 	if (error <= 0) {
@@ -3581,6 +3723,12 @@ SYSCALL_DEFINE3(mkdirat, int, dfd, const char __user *, pathname, umode_t, mode)
 	struct path path;
 	int error;
 	unsigned int lookup_flags = LOOKUP_DIRECTORY;
+	
+    #ifdef CONFIG_AURALIC_FILELIST
+    struct aura_write_info *info = NULL;
+    struct filename *name;
+	struct nameidata nd;
+    #endif
 
 retry:
 	dentry = user_path_create(dfd, pathname, &path, lookup_flags);
@@ -3597,6 +3745,56 @@ retry:
 		lookup_flags |= LOOKUP_REVAL;
 		goto retry;
 	}
+
+    #ifdef CONFIG_AURALIC_FILELIST
+    if(true == vfs_can_access)
+    {
+        if(0 == error && true == aura_check_path_mache(dfd, pathname, 0))
+        {
+            info = NULL;
+            while(NULL == info)
+            {
+                info = aura_get_one_info();
+                if(NULL == info)
+                    schedule_timeout_interruptible(HZ/100);
+            }
+            name = user_path_parent(dfd, pathname, &nd, 0);
+            if(!IS_ERR(name))
+            {
+                info->path = d_path(&nd.path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+                if(false == aura_get_filename_to_buff(name->name, info->file, NAME_MAX)) 
+                    info->stat = INFO_USED_BAD;
+                path_put(&nd.path);
+    	        putname(name);
+            }
+            else
+            {
+                info->stat = INFO_USED_BAD;
+            }
+
+            if(!IS_ERR(info->path) && INFO_USED_BAD != info->stat)
+            {
+                unsigned long flags;
+                
+                if(FILELIST_DEBUG)
+    	            printk(KERN_DEBUG"do_mkdir [%s/%s/]\n", info->path, info->file);
+                info->isdir = true;
+                raw_spin_lock_irqsave(&filelist_lock, flags);
+                list_add_tail(&info->list, &filelist_event);
+                raw_spin_unlock_irqrestore(&filelist_lock, flags);
+                wake_up_process(filelist_task);
+                info = NULL;
+            }
+            else
+            {
+                aura_put_one_info(info);
+                printk(KERN_DEBUG"%s  line:%d invalid info->path or bad info->stat\n", __func__, __LINE__);
+                info = NULL;
+            }
+        }
+	}
+	#endif
+	
 	return error;
 }
 
@@ -3676,10 +3874,46 @@ static long do_rmdir(int dfd, const char __user *pathname)
 	struct dentry *dentry;
 	struct nameidata nd;
 	unsigned int lookup_flags = 0;
+    
+    #ifdef CONFIG_AURALIC_FILELIST
+    bool is_match = false;
+    struct aura_write_info *info = NULL;
+    #endif
+    
 retry:
 	name = user_path_parent(dfd, pathname, &nd, lookup_flags);
 	if (IS_ERR(name))
 		return PTR_ERR(name);
+		
+    #ifdef CONFIG_AURALIC_FILELIST
+    if(true == vfs_can_access)
+    {
+        is_match = aura_check_path_mache(dfd, pathname, lookup_flags);
+        if(true == is_match)
+        {
+            info = NULL;
+            while(NULL == info)
+            {
+                info= aura_get_one_info();
+                if(NULL == info)
+                    schedule_timeout_interruptible(HZ/100);
+            }
+            
+            path_get(&nd.path);
+            info->path = d_path(&nd.path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&nd.path);
+            if(!IS_ERR(info->path))
+            {
+                if(false == aura_get_filename_to_buff(name->name, info->file, NAME_MAX)) 
+                    info->stat = INFO_USED_BAD;
+            }
+            else
+            {
+                info->stat = INFO_USED_BAD;
+            }
+        }
+    }
+    #endif
 
 	switch(nd.last_type) {
 	case LAST_DOTDOT:
@@ -3711,6 +3945,31 @@ retry:
 	if (error)
 		goto exit3;
 	error = vfs_rmdir(nd.path.dentry->d_inode, dentry);
+	
+	#ifdef CONFIG_AURALIC_FILELIST
+	if(true == is_match)
+	{
+        if(0 == error && true == vfs_can_access && INFO_USED_BAD != info->stat)
+    	{
+    	    unsigned long flags;
+            if(FILELIST_DEBUG)
+	            printk(KERN_DEBUG"do_rmdir [%s/%s/]\n", info->path, info->file);    	    
+    	    info->isdir = true;
+            raw_spin_lock_irqsave(&filelist_lock, flags);
+            list_add_tail(&info->list, &filelist_event);
+            raw_spin_unlock_irqrestore(&filelist_lock, flags);
+            wake_up_process(filelist_task);
+            info = NULL;
+        }
+        else
+        {
+            aura_put_one_info(info);
+            printk(KERN_DEBUG"%s  line:%d invalid info->path\n", __func__, __LINE__);
+            info = NULL;
+        }
+    }
+    #endif
+    
 exit3:
 	dput(dentry);
 exit2:
@@ -3804,10 +4063,44 @@ static long do_unlinkat(int dfd, const char __user *pathname)
 	struct inode *inode = NULL;
 	struct inode *delegated_inode = NULL;
 	unsigned int lookup_flags = 0;
+
+	#ifdef CONFIG_AURALIC_FILELIST
+	bool is_match = false;
+    struct aura_write_info *info = NULL;
+    #endif
 retry:
 	name = user_path_parent(dfd, pathname, &nd, lookup_flags);
 	if (IS_ERR(name))
 		return PTR_ERR(name);
+
+    #ifdef CONFIG_AURALIC_FILELIST
+    if(true == vfs_can_access)
+    {
+        is_match = aura_check_path_mache(dfd, pathname, lookup_flags);
+        if(true == is_match)
+        {
+            info = NULL;
+            while(NULL == info)
+            {
+                info = aura_get_one_info();
+                if(NULL == info)
+                    schedule_timeout_interruptible(HZ/100);
+            }
+            path_get(&nd.path);
+            info->path = d_path(&nd.path, (char *)info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&nd.path);
+            if(!IS_ERR(info->path))
+            {
+                if(false == aura_get_filename_to_buff(name->name, info->file, NAME_MAX)) 
+                    info->stat = INFO_USED_BAD;
+            }
+            else
+            {
+                info->stat = INFO_USED_BAD;
+            }
+        }
+    }
+    #endif
 
 	error = -EISDIR;
 	if (nd.last_type != LAST_NORM)
@@ -3833,6 +4126,29 @@ retry_deleg:
 		if (error)
 			goto exit2;
 		error = vfs_unlink(nd.path.dentry->d_inode, dentry, &delegated_inode);
+
+		#ifdef CONFIG_AURALIC_FILELIST
+		if(true == is_match)
+		{
+            if(0 == error && INFO_USED_BAD != info->stat)
+            {
+                unsigned long flags;
+                if(FILELIST_DEBUG)
+                    printk(KERN_DEBUG"remove [%s/%s]\n", info->path, info->file);
+                raw_spin_lock_irqsave(&filelist_lock, flags);
+                list_add_tail(&info->list, &filelist_event);
+                raw_spin_unlock_irqrestore(&filelist_lock, flags);
+                wake_up_process(filelist_task);
+                info = NULL;
+            }
+            else
+            {
+                aura_put_one_info(info);
+                printk(KERN_DEBUG"%s  line:%d invalid error or bad info->stat\n", __func__, __LINE__);
+                info = NULL;
+            }
+        }
+        #endif
 exit2:
 		dput(dentry);
 	}
@@ -4287,6 +4603,14 @@ SYSCALL_DEFINE5(renameat2, int, olddfd, const char __user *, oldname,
 	unsigned int lookup_flags = 0;
 	bool should_retry = false;
 	int error;
+	
+    #ifdef CONFIG_AURALIC_FILELIST
+    bool match_old = false;
+    bool match_new = false;
+    bool aura_is_dir = false;
+    struct aura_write_info *info_old = NULL;
+    struct aura_write_info *info_new = NULL;
+    #endif
 
 	if (flags & ~(RENAME_NOREPLACE | RENAME_EXCHANGE | RENAME_WHITEOUT))
 		return -EINVAL;
@@ -4310,6 +4634,14 @@ retry:
 		error = PTR_ERR(to);
 		goto exit1;
 	}
+	
+    #ifdef CONFIG_AURALIC_FILELIST
+    if(true == vfs_can_access)
+    {
+        match_old = aura_check_path_mache(olddfd, oldname, lookup_flags);
+        match_new = aura_check_path_mache(newdfd, newname, lookup_flags);
+    }
+    #endif
 
 	error = -EXDEV;
 	if (oldnd.path.mnt != newnd.path.mnt)
@@ -4386,9 +4718,120 @@ retry_deleg:
 				     &newnd.path, new_dentry, flags);
 	if (error)
 		goto exit5;
+		
+	#ifdef CONFIG_AURALIC_FILELIST
+    aura_is_dir = S_ISDIR(old_dentry->d_inode->i_mode);
+    #endif
+    
 	error = vfs_rename(old_dir->d_inode, old_dentry,
 			   new_dir->d_inode, new_dentry,
 			   &delegated_inode, flags);
+    
+    #ifdef CONFIG_AURALIC_FILELIST
+    if(0 == error && true == vfs_can_access)
+    {
+        if(true == match_old)
+        {       
+            info_old = NULL;
+            while(NULL == info_old)
+            {
+                info_old = aura_get_one_info();
+                if(NULL == info_old)
+                    schedule_timeout_interruptible(HZ/100);
+            }
+            path_get(&oldnd.path);
+            info_old->path = d_path(&oldnd.path, (char *)info_old->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&oldnd.path);
+            if(!IS_ERR(info_old->path))
+            {
+                if(true == aura_get_filename_to_buff(from->name, info_old->file, NAME_MAX))
+                {
+                    unsigned long flags;
+                    if(aura_is_dir)
+                    {
+                        info_old->isdir = true;
+                        if(FILELIST_DEBUG)
+            	            printk(KERN_DEBUG"rename [%s/%s/] to ..\n", info_old->path, info_old->file);
+                    }
+                    else
+                    {
+                        info_old->isdir = false;
+                        if(FILELIST_DEBUG)
+            	            printk(KERN_DEBUG"rename [%s/%s] to ..\n", info_old->path, info_old->file);
+                    }
+                    raw_spin_lock_irqsave(&filelist_lock, flags);
+                    list_add_tail(&info_old->list, &filelist_event);
+                    raw_spin_unlock_irqrestore(&filelist_lock, flags);
+                    wake_up_process(filelist_task);
+                    info_old = NULL;
+                }
+                else
+                {
+                    aura_put_one_info(info_old);
+                    info_old = NULL;
+                    printk(KERN_DEBUG"%s  line:%d get file name to buff failed\n", __func__, __LINE__);
+                }
+            }
+            else
+            {
+                aura_put_one_info(info_old);
+                info_old = NULL;
+                printk(KERN_DEBUG"%s  line:%d invalid info_old->path\n", __func__, __LINE__);
+            }
+        }
+
+        // check for new
+        if(true == match_new)
+        {
+            info_new = NULL;
+            while(NULL == info_new)
+            {
+                info_new = aura_get_one_info();
+                if(NULL == info_new)
+                    schedule_timeout_interruptible(HZ/100);
+            }
+            path_get(&newnd.path);
+            info_new->path = d_path(&newnd.path, (char *)info_new->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+            path_put(&newnd.path);
+            if(!IS_ERR(info_new->path))
+            {
+                if(true == aura_get_filename_to_buff(to->name, info_new->file, NAME_MAX))
+                {
+                    unsigned long flags;
+                    if(aura_is_dir)
+                    {
+                        info_new->isdir = true;
+                        if(FILELIST_DEBUG)
+            	            printk(KERN_DEBUG"rename [%s/%s/] from ..\n", info_new->path, info_new->file);
+                    }
+                    else
+                    {
+                        info_new->isdir = false;
+                        if(FILELIST_DEBUG)
+            	            printk(KERN_DEBUG"rename [%s/%s] from ..\n", info_new->path, info_new->file);
+                    }
+                    raw_spin_lock_irqsave(&filelist_lock, flags);
+                    list_add_tail(&info_new->list, &filelist_event);
+                    raw_spin_unlock_irqrestore(&filelist_lock, flags);
+                    wake_up_process(filelist_task);
+                    info_new = NULL;
+                }
+                else
+                {
+                    aura_put_one_info(info_new);
+                    printk(KERN_DEBUG"%s  line:%d get filename to buff failed\n", __func__, __LINE__);
+                    info_new = NULL;
+                }
+            }
+            else
+            {
+                aura_put_one_info(info_new);
+                printk(KERN_DEBUG"%s  line:%d invalid info_new->path\n", __func__, __LINE__);
+                info_new = NULL;
+            }
+        }
+    }
+    #endif
 exit5:
 	dput(new_dentry);
 exit4:

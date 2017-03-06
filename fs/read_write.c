@@ -21,6 +21,10 @@
 #include <asm/uaccess.h>
 #include <asm/unistd.h>
 
+#ifdef CONFIG_AURALIC_FILELIST
+#include <linux/auralic_filelist.h>
+#endif
+
 typedef ssize_t (*io_fn_t)(struct file *, char __user *, size_t, loff_t *);
 typedef ssize_t (*iter_fn_t)(struct kiocb *, struct iov_iter *);
 
@@ -520,9 +524,40 @@ ssize_t __kernel_write(struct file *file, const char *buf, size_t count, loff_t 
 
 EXPORT_SYMBOL(__kernel_write);
 
+#ifdef CONFIG_AURALIC_FILELIST
+bool aura_check_path_mache_write(struct path *path)
+{
+    bool ret = false;
+    struct aura_write_info *info = NULL;
+    
+    while(NULL == info)
+    {
+        info = aura_get_one_info_write();
+        if(NULL == info)
+            schedule_timeout_interruptible(HZ/100);
+    }
+    path_get(path);
+    info->path = d_path(path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+    path_put(path);
+    if(!IS_ERR(info->path))
+    {
+        if(0 == strncmp(info->path, MATCH_PATH_STR, strlen(MATCH_PATH_STR)))
+            ret = true;
+    }
+
+    aura_put_one_info_write(info);
+
+    return ret;
+}
+#endif
+
 ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_t *pos)
 {
 	ssize_t ret;
+	
+    #ifdef CONFIG_AURALIC_FILELIST
+    struct aura_write_info *info = NULL;
+    #endif
 
 	if (!(file->f_mode & FMODE_WRITE))
 		return -EBADF;
@@ -539,6 +574,45 @@ ssize_t vfs_write(struct file *file, const char __user *buf, size_t count, loff_
 		if (ret > 0) {
 			fsnotify_modify(file);
 			add_wchar(current, ret);
+			
+            #ifdef CONFIG_AURALIC_FILELIST      
+            if(true == vfs_can_access)
+            {
+                if(true == aura_check_path_mache_write(&file->f_path))
+                {
+                    info = NULL;
+                    while(NULL == info)
+                    {
+                        info = aura_get_one_info();
+                        if(NULL == info)
+                            schedule_timeout_interruptible(HZ/100);
+                    }
+                    path_get(&file->f_path);
+                    info->path = d_path(&file->f_path, info->buff, PATH_MAX-FILELIST_D_PATH_RESERVE);
+                    path_put(&file->f_path);
+                    if(!IS_ERR(info->path))
+                    {
+                        info->iswrite = true;
+                        if(false == aura_fresh_one_info_by_filepath(info))
+                        {
+                            aura_start_one_info(info);
+                            info = NULL;
+                        } 
+                        else
+                        {
+                            aura_put_one_info(info);
+                            info = NULL;
+                        }
+                    }
+                    else
+                    {
+                        aura_put_one_info(info);
+                        info = NULL;
+                        printk(KERN_DEBUG"%s  line:%d invalid info->path\n", __func__, __LINE__);
+                    }
+                }
+            }
+            #endif
 		}
 		inc_syscw(current);
 		file_end_write(file);
