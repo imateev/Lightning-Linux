@@ -34,8 +34,11 @@ static int pause_on_oops_flag;
 static DEFINE_SPINLOCK(pause_on_oops_lock);
 static bool crash_kexec_post_notifiers;
 int panic_on_warn __read_mostly;
-
+#ifdef CONFIG_AURALIC_PANIC
+int panic_timeout = 1;
+#else
 int panic_timeout = CONFIG_PANIC_TIMEOUT;
+#endif
 EXPORT_SYMBOL_GPL(panic_timeout);
 
 ATOMIC_NOTIFIER_HEAD(panic_notifier_list);

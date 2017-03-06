@@ -107,6 +107,9 @@ struct mmc_blk_data {
 	unsigned int	read_only;
 	unsigned int	part_type;
 	unsigned int	name_idx;
+	#ifdef CONFIG_STATIC_MMCBLK_IDX
+	unsigned int    name_idx_bk;
+	#endif
 	unsigned int	reset_done;
 #define MMC_BLK_READ		BIT(0)
 #define MMC_BLK_WRITE		BIT(1)
@@ -2131,9 +2134,19 @@ static struct mmc_blk_data *mmc_blk_alloc_req(struct mmc_card *card,
 					mmc_first_nonreserved_index());
 
 		__set_bit(md->name_idx, name_use);
+		#ifdef  CONFIG_STATIC_MMCBLK_IDX
+		md->name_idx_bk = md->name_idx;
+		md->name_idx = 0;
+		#endif
 	} else
+	{
 		md->name_idx = ((struct mmc_blk_data *)
 				dev_to_disk(parent)->private_data)->name_idx;
+		#ifdef  CONFIG_STATIC_MMCBLK_IDX
+		md->name_idx_bk = md->name_idx;
+		md->name_idx = 0;
+		#endif
+	}
 
 	md->area_type = area_type;
 
@@ -2336,6 +2349,10 @@ static void mmc_blk_remove_parts(struct mmc_card *card,
 {
 	struct list_head *pos, *q;
 	struct mmc_blk_data *part_md;
+
+    #ifdef  CONFIG_STATIC_MMCBLK_IDX
+	md->name_idx = md->name_idx_bk;
+	#endif
 
 	__clear_bit(md->name_idx, name_use);
 	list_for_each_safe(pos, q, &md->part) {

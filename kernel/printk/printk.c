@@ -1279,6 +1279,117 @@ out:
 	return len;
 }
 
+#ifdef CONFIG_AURALIC_PANIC
+int aura_dump_syslog_to_buff(char *text, int size)
+{
+	int len = 0;
+	int attempts = 0;
+
+	raw_spin_lock_irq(&logbuf_lock);
+	if (text) {
+		u64 next_seq;
+		u64 seq;
+		u32 idx;
+		enum log_flags prev;
+		int num_msg;
+try_again:
+		attempts++;
+		if (attempts > 10) {
+			len = -EBUSY;
+			goto out;
+		}
+		num_msg = 0;
+		if (clear_seq < log_first_seq) {
+			/* messages are gone, move to first available one */
+			clear_seq = log_first_seq;
+			clear_idx = log_first_idx;
+		}
+
+		/*
+		 * Find first record that fits, including all following records,
+		 * into the user-provided buffer for this dump.
+		 */
+		seq = clear_seq;
+		idx = clear_idx;
+		prev = 0;
+		while (seq < log_next_seq) {
+			struct printk_log *msg = log_from_idx(idx);
+
+			len += msg_print_text(msg, prev, true, NULL, 0);
+			prev = msg->flags;
+			idx = log_next(idx);
+			seq++;
+			num_msg++;
+			if (num_msg > 5) {
+				num_msg = 0;
+				raw_spin_unlock_irq(&logbuf_lock);
+				raw_spin_lock_irq(&logbuf_lock);
+				if (clear_seq < log_first_seq)
+					goto try_again;
+			}
+		}
+
+		/* move first record forward until length fits into the buffer */
+		seq = clear_seq;
+		idx = clear_idx;
+		prev = 0;
+		while (len > size && seq < log_next_seq) {
+			struct printk_log *msg = log_from_idx(idx);
+
+			len -= msg_print_text(msg, prev, true, NULL, 0);
+			prev = msg->flags;
+			idx = log_next(idx);
+			seq++;
+			num_msg++;
+			if (num_msg > 5) {
+				num_msg = 0;
+				raw_spin_unlock_irq(&logbuf_lock);
+				raw_spin_lock_irq(&logbuf_lock);
+				if (clear_seq < log_first_seq)
+					goto try_again;
+			}
+		}
+
+		/* last message fitting into this dump */
+		next_seq = log_next_seq;
+
+		len = 0;
+		prev = 0;
+		while (len >= 0 && seq < next_seq) {
+			struct printk_log *msg = log_from_idx(idx);
+			int textlen;
+
+			textlen = msg_print_text(msg, prev, true, text+len,
+						 LOG_LINE_MAX + PREFIX_MAX);
+			if (textlen < 0) {
+				len = textlen;
+				break;
+			}
+			idx = log_next(idx);
+			seq++;
+			prev = msg->flags;
+
+			raw_spin_unlock_irq(&logbuf_lock);
+			len += textlen;
+			raw_spin_lock_irq(&logbuf_lock);
+
+			if (seq < log_first_seq) {
+				/* messages are gone, move to next one */
+				seq = log_first_seq;
+				idx = log_first_idx;
+				prev = 0;
+			}
+		}
+	}
+
+out:
+	raw_spin_unlock_irq(&logbuf_lock);
+
+	return len;
+}
+EXPORT_SYMBOL_GPL(aura_dump_syslog_to_buff);
+#endif
+
 int do_syslog(int type, char __user *buf, int len, bool from_file)
 {
 	bool clear = false;

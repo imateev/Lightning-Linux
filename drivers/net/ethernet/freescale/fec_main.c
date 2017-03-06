@@ -67,6 +67,14 @@
 
 #include "fec.h"
 
+#ifdef   CONFIG_AURALIC_ETH_RESET   //hyf
+#include <linux/proc_fs.h>
+#include <linux/fs.h>
+#include <asm/uaccess.h>
+#include <linux/gpio.h>
+#include <linux/delay.h>
+#endif
+
 static void set_multicast_list(struct net_device *ndev);
 static void fec_enet_itr_coal_init(struct net_device *ndev);
 
@@ -339,7 +347,8 @@ static void fec_dump(struct net_device *ndev)
 
 	txq = fep->tx_queue[0];
 	bdp = txq->tx_bd_base;
-
+    
+    #if 0 //auralic, limit the log print
 	do {
 		pr_info("%3u %c%c 0x%04x 0x%08lx %4u %p\n",
 			index,
@@ -350,6 +359,7 @@ static void fec_dump(struct net_device *ndev)
 		bdp = fec_enet_get_nextdesc(bdp, fep, 0);
 		index++;
 	} while (bdp != txq->tx_bd_base);
+	#endif
 }
 
 static inline bool is_ipv4_pkt(struct sk_buff *skb)
@@ -3435,6 +3445,60 @@ static void fec_enet_of_parse_stop_mode(struct platform_device *pdev)
 	fep->gpr.req_bit = out_val[2];
 }
 
+#ifdef  CONFIG_AURALIC_ETH_RESET
+
+int eth0 = 1 ;
+ssize_t ethproc_read(struct file *filp, char __user *usrbuf, size_t size, loff_t *offset)
+{
+    return 0;
+}
+
+
+static ssize_t ethproc_write(struct file *filp, const char __user *usr_buf,
+                              size_t count, loff_t *f_pos)
+{
+    char len;
+    char buff[100] = {0};
+
+    len = count < 100 ? count : 99;
+    if(0 != copy_from_user(buff, usr_buf, len))
+    {
+         return count;
+    }
+                    
+    buff[99] = '\0';
+
+    if(sizeof("1") == count && 0 == strncmp(buff, "1", 1))
+    {
+         if(0 == eth0)
+         {
+             eth0 = 1;
+             gpio_direction_output(25, 1);
+             gpio_set_value(25, 1); 
+             msleep(2000);
+             //printk("set eth0_reset high\n");
+         }
+    }
+    else if(sizeof("0") == count && 0 == strncmp(buff, "0", 1))
+    {
+         eth0 = 0;
+         gpio_direction_output(25, 1);
+         gpio_set_value(25, 0); 
+         //printk("set eth0_reset low\n");
+    }
+    else
+         printk("invalid parameter\n");
+
+    return count;
+}
+
+
+static const struct  file_operations eth0proc_op = {
+        .read = ethproc_read,
+        .write = ethproc_write,
+};
+#endif
+
 static int
 fec_probe(struct platform_device *pdev)
 {
@@ -3448,6 +3512,13 @@ fec_probe(struct platform_device *pdev)
 	struct device_node *np = pdev->dev.of_node, *phy_node;
 	int num_tx_qs;
 	int num_rx_qs;
+
+    #ifdef  CONFIG_AURALIC_ETH_RESET
+    #if 0 //already config this gpio in devicetree
+    gpio_request(25, "gpio_reset_avr\n"); // gpio1_25
+    #endif
+    proc_create("eth0", 0755, NULL, &eth0proc_op);
+    #endif
 
 	fec_enet_get_queue_num(pdev, &num_tx_qs, &num_rx_qs);
 
@@ -3624,6 +3695,13 @@ fec_probe(struct platform_device *pdev)
 
 	fep->rx_copybreak = COPYBREAK_DEFAULT;
 	INIT_WORK(&fep->tx_timeout_work, fec_enet_timeout_work);
+		
+	#ifdef  CONFIG_AURALIC_ETH_RESET
+    gpio_direction_output(25, 1); // hyf
+    gpio_set_value(25, 0); // set down eth0 hyf 
+    eth0 = 0;
+    #endif
+    
 	return 0;
 
 failed_register:

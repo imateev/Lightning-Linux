@@ -52,6 +52,10 @@ struct kmsg_dumper {
 	u64 next_seq;
 };
 
+#ifdef CONFIG_AURALIC_PANIC
+int aura_dump_syslog_to_buff(char *text, int size);//auralic
+#endif
+
 #ifdef CONFIG_PRINTK
 void kmsg_dump(enum kmsg_dump_reason reason);
 

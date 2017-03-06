@@ -136,11 +136,16 @@ int usb_choose_configuration(struct usb_device *udev)
 		else if (!best)
 			best = c;
 	}
-
+	
+#ifndef CONFIG_AURALIC_USB_BEST_CONFIG
 	if (insufficient_power > 0)
 		dev_info(&udev->dev, "rejected %d configuration%s "
 			"due to insufficient available bus power\n",
 			insufficient_power, plural(insufficient_power));
+#else
+        best = udev->config;
+        dev_info(&udev->dev, "take usb config0 as best config for auralic\n");
+#endif
 
 	if (best) {
 		i = best->desc.bConfigurationValue;
