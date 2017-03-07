@@ -30,12 +30,19 @@
 #include <linux/mm.h>
 #include <linux/bitops.h>
 #include <linux/pm_qos.h>
+#ifdef  CONFIG_AURALIC_GPIO
+#include <linux/gpio.h>
+#endif
 
 #define snd_pcm_substream_chip(substream) ((substream)->private_data)
 #define snd_pcm_chip(pcm) ((pcm)->private_data)
 
 #if defined(CONFIG_SND_PCM_OSS) || defined(CONFIG_SND_PCM_OSS_MODULE)
 #include <sound/pcm_oss.h>
+#endif
+
+#ifdef  CONFIG_AURALIC_GPIO
+#define  USB_AUDIO_RESET_GPIO    (4*32 + 8) //GPIO5_08
 #endif
 
 /*

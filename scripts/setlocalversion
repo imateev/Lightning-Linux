@@ -160,7 +160,7 @@ res="${res}${CONFIG_LOCALVERSION}${LOCALVERSION}"
 if test "$CONFIG_LOCALVERSION_AUTO" = "y"; then
 	# full scm version string
 	# res="$res$(scm_version)"
-	res="$res"
+	res="$res" #hyf
 else
 	# append a plus sign if the repository is not in a clean
 	# annotated or signed tagged state (as git describe only

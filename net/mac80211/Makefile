@@ -1,3 +1,4 @@
+KBUILD_EXTRA_SYMBOLS=/home/hu/release/linux-4.1.15/Lightning-Linux/net/wireless/Module.symvers
 obj-$(CONFIG_MAC80211) += mac80211.o
 
 # mac80211 objects

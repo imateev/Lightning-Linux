@@ -492,6 +492,13 @@ static int set_format(struct snd_usb_substream *subs, struct audioformat *fmt)
 			dev_err(&dev->dev,
 				"%d:%d: usb_set_interface failed (%d)\n",
 				fmt->iface, fmt->altsetting, err);
+
+		    #ifdef  CONFIG_AURALIC_GPIO
+		    gpio_set_value(USB_AUDIO_RESET_GPIO, 0);
+		    printk(KERN_ERR"auralic reset usb audio card for interface!\n");
+		    msleep(100);
+		    gpio_set_value(USB_AUDIO_RESET_GPIO, 1);
+		    #endif
 			return -EIO;
 		}
 		dev_dbg(&dev->dev, "setting usb interface %d:%d\n",

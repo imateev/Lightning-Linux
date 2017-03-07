@@ -56,6 +56,9 @@
 #include <sound/hwdep.h>
 #include <sound/info.h>
 #include <sound/tlv.h>
+#ifdef  CONFIG_AURALIC_GPIO
+#include <sound/pcm.h>
+#endif
 
 #include "usbaudio.h"
 #include "mixer.h"
@@ -317,12 +320,23 @@ static int get_ctl_value_v1(struct usb_mixer_elem_info *cval, int request,
 		"cannot get ctl value: req = %#x, wValue = %#x, wIndex = %#x, type = %d\n",
 		request, validx, idx, cval->val_type);
 	err = -EINVAL;
-
+    #if 0
+    #ifdef  CONFIG_AURALIC_GPIO
+    gpio_set_value(USB_AUDIO_RESET_GPIO, 0);
+    printk(KERN_ERR"auralic reset usb audio card wValue!\n");
+    msleep(100); 
+    gpio_set_value(USB_AUDIO_RESET_GPIO, 1);
+    #endif
+    #endif
  out:
 	up_read(&chip->shutdown_rwsem);
 	snd_usb_autosuspend(chip);
 	return err;
 }
+
+#ifdef  CONFIG_AURALIC_GPIO
+int usb_reset_count = 0;
+#endif
 
 static int get_ctl_value_v2(struct usb_mixer_elem_info *cval, int request,
 			    int validx, int *value_ret)
@@ -364,6 +378,17 @@ error:
 		usb_audio_err(chip,
 			"cannot get ctl value: req = %#x, wValue = %#x, wIndex = %#x, type = %d\n",
 			request, validx, idx, cval->val_type);
+			   
+	    #ifdef  CONFIG_AURALIC_GPIO
+	    if(0 == usb_reset_count%2)
+	    {
+	        gpio_set_value(USB_AUDIO_RESET_GPIO, 0);
+	        printk(KERN_ERR"auralic reset usb audio card wValue!\n");
+	        msleep(100);
+	        gpio_set_value(USB_AUDIO_RESET_GPIO, 1);
+	    }
+	    usb_reset_count++;
+	    #endif
 		return ret;
 	}
 
