@@ -29,9 +29,3 @@ config HFSPLUS_FS_POSIX_ACL
 	  which are part of the NFSv4 standard.
 
 	  If you don't know what Access Control Lists are, say N
-
-config HFSPLUS_JOURNAL
-	bool "HFSPLUS journal support"
-	depends on HFSPLUS_FS
-	help
-		Enabling journal support in HFSPlus file system.

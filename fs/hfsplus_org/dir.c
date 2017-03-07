@@ -12,6 +12,7 @@
 #include <linux/fs.h>
 #include <linux/slab.h>
 #include <linux/random.h>
+#include <linux/nls.h>
 
 #include "hfsplus_fs.h"
 #include "hfsplus_raw.h"
@@ -26,13 +27,8 @@ static inline void hfsplus_instantiate(struct dentry *dentry,
 }
 
 /* Find the entry inside dir named dentry->d_name */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 static struct dentry *hfsplus_lookup(struct inode *dir, struct dentry *dentry,
 				     unsigned int flags)
-#else
-static struct dentry *hfsplus_lookup(struct inode *dir, struct dentry *dentry,
-				     struct nameidata *nd)
-#endif
 {
 	struct inode *inode = NULL;
 	struct hfs_find_data fd;
@@ -48,7 +44,10 @@ static struct dentry *hfsplus_lookup(struct inode *dir, struct dentry *dentry,
 	err = hfs_find_init(HFSPLUS_SB(sb)->cat_tree, &fd);
 	if (err)
 		return ERR_PTR(err);
-	hfsplus_cat_build_key(sb, fd.search_key, dir->i_ino, &dentry->d_name);
+	err = hfsplus_cat_build_key(sb, fd.search_key, dir->i_ino,
+			&dentry->d_name);
+	if (unlikely(err < 0))
+		goto fail;
 again:
 	err = hfs_brec_read(&fd, &entry, sizeof(entry));
 	if (err) {
@@ -82,7 +81,7 @@ again:
 					HFSPLUS_I(HFSPLUS_SB(sb)->hidden_dir)->
 						create_date ||
 				entry.file.create_date ==
-					HFSPLUS_I(sb->s_root->d_inode)->
+					HFSPLUS_I(d_inode(sb->s_root))->
 						create_date) &&
 				HFSPLUS_SB(sb)->hidden_dir) {
 			struct qstr str;
@@ -101,9 +100,11 @@ again:
 					be32_to_cpu(entry.file.permissions.dev);
 				str.len = sprintf(name, "iNode%d", linkid);
 				str.name = name;
-				hfsplus_cat_build_key(sb, fd.search_key,
+				err = hfsplus_cat_build_key(sb, fd.search_key,
 					HFSPLUS_SB(sb)->hidden_dir->i_ino,
 					&str);
+				if (unlikely(err < 0))
+					goto fail;
 				goto again;
 			}
 		} else if (!dentry->d_fsdata)
@@ -127,50 +128,40 @@ fail:
 	return ERR_PTR(err);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
 static int hfsplus_readdir(struct file *file, struct dir_context *ctx)
-#else
-static int hfsplus_readdir(struct file *file, void *dirent, filldir_t filldir)
-#endif
 {
 	struct inode *inode = file_inode(file);
 	struct super_block *sb = inode->i_sb;
 	int len, err;
-	char strbuf[HFSPLUS_MAX_STRLEN + 1];
+	char *strbuf;
 	hfsplus_cat_entry entry;
 	struct hfs_find_data fd;
 	struct hfsplus_readdir_data *rd;
 	u16 type;
-	loff_t	pos;
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
-	pos=ctx->pos;
-#else
-	pos=file->f_pos;
-#endif
-	
 	if (file->f_pos >= inode->i_size)
 		return 0;
 
 	err = hfs_find_init(HFSPLUS_SB(sb)->cat_tree, &fd);
 	if (err)
 		return err;
-	hfsplus_cat_build_key(sb, fd.search_key, inode->i_ino, NULL);
+	strbuf = kmalloc(NLS_MAX_CHARSET_SIZE * HFSPLUS_MAX_STRLEN + 1, GFP_KERNEL);
+	if (!strbuf) {
+		err = -ENOMEM;
+		goto out;
+	}
+	hfsplus_cat_build_key_with_cnid(sb, fd.search_key, inode->i_ino);
 	err = hfs_brec_find(&fd, hfs_find_rec_by_key);
 	if (err)
 		goto out;
 
-	if (pos == 0) {
+	if (ctx->pos == 0) {
 		/* This is completely artificial... */
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
 		if (!dir_emit_dot(file, ctx))
-#else
-		if (filldir(dirent, ".", 1, 0, inode->i_ino, DT_DIR))
-#endif
 			goto out;
-		pos = 1;
+		ctx->pos = 1;
 	}
-	if (pos == 1) {
+	if (ctx->pos == 1) {
 		if (fd.entrylength > sizeof(entry) || fd.entrylength < 0) {
 			err = -EIO;
 			goto out;
@@ -188,29 +179,14 @@ static int hfsplus_readdir(struct file *file, void *dirent, filldir_t filldir)
 			err = -EIO;
 			goto out;
 		}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
-		ctx->pos=pos;
 		if (!dir_emit(ctx, "..", 2,
-			be32_to_cpu(entry.thread.parentID), DT_DIR))
-#else
-		file->f_pos=pos;
-		if (filldir(dirent, "..", 2, 1,
-			be32_to_cpu(entry.thread.parentID), DT_DIR))
-
-#endif
+			    be32_to_cpu(entry.thread.parentID), DT_DIR))
 			goto out;
-		pos = 2;
+		ctx->pos = 2;
 	}
-	
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
-	ctx->pos=pos;
-#else
-	file->f_pos=pos;
-#endif
-
-	if (pos >= inode->i_size)
+	if (ctx->pos >= inode->i_size)
 		goto out;
-	err = hfs_brec_goto(&fd, pos - 1);
+	err = hfs_brec_goto(&fd, ctx->pos - 1);
 	if (err)
 		goto out;
 	for (;;) {
@@ -228,7 +204,7 @@ static int hfsplus_readdir(struct file *file, void *dirent, filldir_t filldir)
 		hfs_bnode_read(fd.bnode, &entry, fd.entryoffset,
 			fd.entrylength);
 		type = be16_to_cpu(entry.type);
-		len = HFSPLUS_MAX_STRLEN;
+		len = NLS_MAX_CHARSET_SIZE * HFSPLUS_MAX_STRLEN;
 		err = hfsplus_uni2asc(sb, &fd.key->cat.name, strbuf, &len);
 		if (err)
 			goto out;
@@ -243,31 +219,35 @@ static int hfsplus_readdir(struct file *file, void *dirent, filldir_t filldir)
 			    HFSPLUS_SB(sb)->hidden_dir->i_ino ==
 					be32_to_cpu(entry.folder.id))
 				goto next;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
-			ctx->pos=pos;
 			if (!dir_emit(ctx, strbuf, len,
 				    be32_to_cpu(entry.folder.id), DT_DIR))
-#else
-			file->f_pos = pos;
-			if (filldir(dirent, strbuf, len, file->f_pos,
-				    be32_to_cpu(entry.folder.id), DT_DIR))
-#endif
 				break;
 		} else if (type == HFSPLUS_FILE) {
+			u16 mode;
+			unsigned type = DT_UNKNOWN;
+
 			if (fd.entrylength < sizeof(struct hfsplus_cat_file)) {
 				pr_err("small file entry\n");
 				err = -EIO;
 				goto out;
 			}
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
-			ctx->pos=pos;
+
+			mode = be16_to_cpu(entry.file.permissions.mode);
+			if (S_ISREG(mode))
+				type = DT_REG;
+			else if (S_ISLNK(mode))
+				type = DT_LNK;
+			else if (S_ISFIFO(mode))
+				type = DT_FIFO;
+			else if (S_ISCHR(mode))
+				type = DT_CHR;
+			else if (S_ISBLK(mode))
+				type = DT_BLK;
+			else if (S_ISSOCK(mode))
+				type = DT_SOCK;
+
 			if (!dir_emit(ctx, strbuf, len,
-				    be32_to_cpu(entry.file.id), DT_REG))
-#else
-			file->f_pos = pos;
-			if (filldir(dirent, strbuf, len, file->f_pos,
-				    be32_to_cpu(entry.file.id), DT_REG))
-#endif
+				      be32_to_cpu(entry.file.id), type))
 				break;
 		} else {
 			pr_err("bad catalog entry type\n");
@@ -275,10 +255,9 @@ static int hfsplus_readdir(struct file *file, void *dirent, filldir_t filldir)
 			goto out;
 		}
 next:
-		pos++;
-		if (pos >= inode->i_size)
+		ctx->pos++;
+		if (ctx->pos >= inode->i_size)
 			goto out;
-		
 		err = hfs_brec_goto(&fd, 1);
 		if (err)
 			goto out;
@@ -296,11 +275,7 @@ next:
 	}
 	memcpy(&rd->key, fd.key, sizeof(struct hfsplus_cat_key));
 out:
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
-	ctx->pos=pos;
-#else
-	file->f_pos=pos;
-#endif
+	kfree(strbuf);
 	hfs_find_exit(&fd);
 	return err;
 }
@@ -321,8 +296,8 @@ static int hfsplus_link(struct dentry *src_dentry, struct inode *dst_dir,
 			struct dentry *dst_dentry)
 {
 	struct hfsplus_sb_info *sbi = HFSPLUS_SB(dst_dir->i_sb);
-	struct inode *inode = src_dentry->d_inode;
-	struct inode *src_dir = src_dentry->d_parent->d_inode;
+	struct inode *inode = d_inode(src_dentry);
+	struct inode *src_dir = d_inode(src_dentry->d_parent);
 	struct qstr str;
 	char name[32];
 	u32 cnid, id;
@@ -378,7 +353,7 @@ out:
 static int hfsplus_unlink(struct inode *dir, struct dentry *dentry)
 {
 	struct hfsplus_sb_info *sbi = HFSPLUS_SB(dir->i_sb);
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_inode(dentry);
 	struct qstr str;
 	char name[32];
 	u32 cnid;
@@ -435,7 +410,7 @@ out:
 static int hfsplus_rmdir(struct inode *dir, struct dentry *dentry)
 {
 	struct hfsplus_sb_info *sbi = HFSPLUS_SB(dir->i_sb);
-	struct inode *inode = dentry->d_inode;
+	struct inode *inode = d_inode(dentry);
 	int res;
 
 	if (inode->i_size != 2)
@@ -459,7 +434,7 @@ static int hfsplus_symlink(struct inode *dir, struct dentry *dentry,
 {
 	struct hfsplus_sb_info *sbi = HFSPLUS_SB(dir->i_sb);
 	struct inode *inode;
-	int res = -ENOSPC;
+	int res = -ENOMEM;
 
 	mutex_lock(&sbi->vh_mutex);
 	inode = hfsplus_new_inode(dir->i_sb, S_IFLNK | S_IRWXUGO);
@@ -495,18 +470,13 @@ out:
 	mutex_unlock(&sbi->vh_mutex);
 	return res;
 }
-//abi change at least 3.5+
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
+
 static int hfsplus_mknod(struct inode *dir, struct dentry *dentry,
 			 umode_t mode, dev_t rdev)
-#else
-static int hfsplus_mknod(struct inode *dir, struct dentry *dentry,
-			 int mode, dev_t rdev)
-#endif
 {
 	struct hfsplus_sb_info *sbi = HFSPLUS_SB(dir->i_sb);
 	struct inode *inode;
-	int res = -ENOSPC;
+	int res = -ENOMEM;
 
 	mutex_lock(&sbi->vh_mutex);
 	inode = hfsplus_new_inode(dir->i_sb, mode);
@@ -542,25 +512,13 @@ out:
 	return res;
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,6,0)
 static int hfsplus_create(struct inode *dir, struct dentry *dentry, umode_t mode,
 			  bool excl)
-#elif LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
-static int hfsplus_create(struct inode *dir, struct dentry *dentry, umode_t mode,
-			  struct nameidata *nd)
-#else
-static int hfsplus_create(struct inode *dir, struct dentry *dentry, int mode,
-			  struct nameidata *nd)
-#endif
 {
 	return hfsplus_mknod(dir, dentry, mode, 0);
 }
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,3,0)
 static int hfsplus_mkdir(struct inode *dir, struct dentry *dentry, umode_t mode)
-#else
-static int hfsplus_mkdir(struct inode *dir, struct dentry *dentry, int mode)
-#endif
 {
 	return hfsplus_mknod(dir, dentry, mode | S_IFDIR, 0);
 }
@@ -571,8 +529,8 @@ static int hfsplus_rename(struct inode *old_dir, struct dentry *old_dentry,
 	int res;
 
 	/* Unlink destination if it already exists */
-	if (new_dentry->d_inode) {
-		if (S_ISDIR(new_dentry->d_inode->i_mode))
+	if (d_really_is_positive(new_dentry)) {
+		if (d_is_dir(new_dentry))
 			res = hfsplus_rmdir(new_dir, new_dentry);
 		else
 			res = hfsplus_unlink(new_dir, new_dentry);
@@ -601,20 +559,17 @@ const struct inode_operations hfsplus_dir_inode_operations = {
 	.setxattr		= generic_setxattr,
 	.getxattr		= generic_getxattr,
 	.listxattr		= hfsplus_listxattr,
-	.removexattr		= hfsplus_removexattr,
+	.removexattr		= generic_removexattr,
 #ifdef CONFIG_HFSPLUS_FS_POSIX_ACL
 	.get_acl		= hfsplus_get_posix_acl,
+	.set_acl		= hfsplus_set_posix_acl,
 #endif
 };
 
 const struct file_operations hfsplus_dir_operations = {
 	.fsync		= hfsplus_file_fsync,
 	.read		= generic_read_dir,
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,11,0)
 	.iterate	= hfsplus_readdir,
-#else
-	.readdir	= hfsplus_readdir,
-#endif
 	.unlocked_ioctl = hfsplus_ioctl,
 	.llseek		= generic_file_llseek,
 	.release	= hfsplus_dir_release,

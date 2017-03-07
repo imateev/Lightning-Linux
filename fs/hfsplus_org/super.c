@@ -12,132 +12,15 @@
 #include <linux/pagemap.h>
 #include <linux/blkdev.h>
 #include <linux/fs.h>
-#include <linux/slab.h> 
+#include <linux/slab.h>
 #include <linux/vfs.h>
 #include <linux/nls.h>
-
-#include <linux/proc_fs.h>
 
 static struct inode *hfsplus_alloc_inode(struct super_block *sb);
 static void hfsplus_destroy_inode(struct inode *inode);
 
 #include "hfsplus_fs.h"
 #include "xattr.h"
-
-#if HFS_DISKINFO
-
-#define HFSPLUS_PROC_FILE   "hfsinfo"
-#define HFS_INFO_NUMS       8
-#define DISK_NAME_LEN       32
-typedef struct hfs_info {
-    bool used;
-    char disk_name[DISK_NAME_LEN];
-    char state[DISK_NAME_LEN];    
-}hfs_info_s;
-hfs_info_s * hfsinfo = NULL;
-
-bool hfs_set_disk_info(char *diskname, char *state)
-{
-    int i;
-    for(i=0; i < HFS_INFO_NUMS; i++)
-    {
-        if(0 == strncmp(hfsinfo[i].disk_name, diskname, DISK_NAME_LEN))
-        {
-            strncpy(hfsinfo[i].state, state, DISK_NAME_LEN);
-            hfsinfo[i].used = true;
-            return true;
-        }
-    }
-    
-    for(i=0; i < HFS_INFO_NUMS; i++)
-    {
-        if(false == hfsinfo[i].used)
-        {
-            strncpy(hfsinfo[i].disk_name, diskname, DISK_NAME_LEN);
-            strncpy(hfsinfo[i].state, state, DISK_NAME_LEN);
-            hfsinfo[i].used = true;
-            return true;
-        }
-    }
-
-    return false;
-}
-
-bool hfs_clear_one_disk_info(char *diskname)
-{
-    int i;
-
-    for(i=0; i < HFS_INFO_NUMS; i++)
-    {
-        if(0 == strncmp(hfsinfo[i].disk_name, diskname, DISK_NAME_LEN))
-        {
-            memset(hfsinfo[i].disk_name, 0, DISK_NAME_LEN);
-            memset(hfsinfo[i].state, 0, DISK_NAME_LEN);
-            hfsinfo[i].used = false;
-            return true;
-        }
-    }
-    
-    return false;
-}
-
-
-ssize_t hfsproc_read(struct file *filp, char __user *usrbuf, size_t size, loff_t *offset)
-{
-    int i, index = 0;
-    int buff_len = sizeof(hfs_info_s) * HFS_INFO_NUMS;
-    char buff[buff_len];
-    char tmp[100];
-    int tmplen;
-
-    
-    if(0 != *offset)
-        return 0;
-        
-    memset(buff, '\0', 500);
-
-    for(i=0; i < HFS_INFO_NUMS; i++)
-    {
-        if(true == hfsinfo[i].used)
-        {
-            memset(tmp, '\0', 100);
-            sprintf(tmp, "%s -> %s\n", hfsinfo[i].disk_name, hfsinfo[i].state);
-            tmplen = strlen(tmp);
-            memcpy(buff + index, tmp, tmplen);
-            index += tmplen;
-        }
-        
-        if((index + sizeof(hfs_info_s)) >= buff_len)
-        {
-            printk("%s: exceed buff lenth\n", __func__);
-            break;
-        }
-    }
-    
-    buff[index++] = '\0';
-
-    index = index < size ? index : size;
-    *offset += index;
-    
-    if(0 != copy_to_user(usrbuf, buff, index))
-    {
-        index = 0;
-    }
-    
-	return index;
-}
-
-static ssize_t hfsproc_write(struct file *filp, const char __user *usr_buf,
-                             size_t count, loff_t *f_pos)
-{
-    return count;
-}
-
-static const struct  file_operations hfsproc_op = {
-    .read = hfsproc_read,
-    .write = hfsproc_write,
-};
-#endif
 
 static int hfsplus_system_read_inode(struct inode *inode)
 {
@@ -146,20 +29,10 @@ static int hfsplus_system_read_inode(struct inode *inode)
 	switch (inode->i_ino) {
 	case HFSPLUS_EXT_CNID:
 		hfsplus_inode_read_fork(inode, &vhdr->ext_file);
-#ifdef CONFIG_HFSPLUS_JOURNAL
-		if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) {
-			inode->i_mapping->a_ops = &hfsplus_journaled_btree_aops;
-		} else
-#endif
 		inode->i_mapping->a_ops = &hfsplus_btree_aops;
 		break;
 	case HFSPLUS_CAT_CNID:
 		hfsplus_inode_read_fork(inode, &vhdr->cat_file);
-#ifdef CONFIG_HFSPLUS_JOURNAL
-		if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) {
-			inode->i_mapping->a_ops = &hfsplus_journaled_btree_aops;
-		} else
-#endif
 		inode->i_mapping->a_ops = &hfsplus_btree_aops;
 		break;
 	case HFSPLUS_ALLOC_CNID:
@@ -171,11 +44,6 @@ static int hfsplus_system_read_inode(struct inode *inode)
 		break;
 	case HFSPLUS_ATTR_CNID:
 		hfsplus_inode_read_fork(inode, &vhdr->attr_file);
-#ifdef CONFIG_HFSPLUS_JOURNAL
-		if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) {
-			inode->i_mapping->a_ops = &hfsplus_journaled_btree_aops;
-		} else
-#endif
 		inode->i_mapping->a_ops = &hfsplus_btree_aops;
 		break;
 	default:
@@ -263,9 +131,10 @@ static int hfsplus_system_write_inode(struct inode *inode)
 	hfsplus_inode_write_fork(inode, fork);
 	if (tree) {
 		int err = hfs_btree_write(tree);
+
 		if (err) {
 			pr_err("b-tree write err: %d, ino %lu\n",
-					err, inode->i_ino);
+			       err, inode->i_ino);
 			return err;
 		}
 	}
@@ -293,12 +162,8 @@ static int hfsplus_write_inode(struct inode *inode,
 static void hfsplus_evict_inode(struct inode *inode)
 {
 	hfs_dbg(INODE, "hfsplus_evict_inode: %lu\n", inode->i_ino);
-	truncate_inode_pages(&inode->i_data, 0);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,5,0)
+	truncate_inode_pages_final(&inode->i_data);
 	clear_inode(inode);
-#else
-	end_writeback(inode);
-#endif
 	if (HFSPLUS_IS_RSRC(inode)) {
 		HFSPLUS_I(HFSPLUS_I(inode)->rsrc_inode)->rsrc_inode = NULL;
 		iput(HFSPLUS_I(inode)->rsrc_inode);
@@ -410,9 +275,6 @@ void hfsplus_mark_mdb_dirty(struct super_block *sb)
 static void hfsplus_put_super(struct super_block *sb)
 {
 	struct hfsplus_sb_info *sbi = HFSPLUS_SB(sb);
-#ifdef CONFIG_HFSPLUS_JOURNAL
-	int jnl_ret;
-#endif
 
 	hfs_dbg(SUPER, "hfsplus_put_super\n");
 
@@ -425,14 +287,7 @@ static void hfsplus_put_super(struct super_block *sb)
 		vhdr->attributes |= cpu_to_be32(HFSPLUS_VOL_UNMNT);
 		vhdr->attributes &= cpu_to_be32(~HFSPLUS_VOL_INCNSTNT);
 
-#ifdef CONFIG_HFSPLUS_JOURNAL
-		jnl_ret = hfsplus_journaled_start_transaction(NULL, sb);
-#endif
 		hfsplus_sync_fs(sb, 1);
-#ifdef CONFIG_HFSPLUS_JOURNAL
-		if (jnl_ret == HFSPLUS_JOURNAL_SUCCESS)
-			hfsplus_journaled_end_transaction(NULL, sb);
-#endif
 	}
 
 	hfs_btree_close(sbi->attr_tree);
@@ -440,10 +295,6 @@ static void hfsplus_put_super(struct super_block *sb)
 	hfs_btree_close(sbi->ext_tree);
 	iput(sbi->alloc_file);
 	iput(sbi->hidden_dir);
-#ifdef CONFIG_HFSPLUS_JOURNAL    
-    hfs_clear_one_disk_info(sb->s_id);
-	hfsplus_journaled_deinit(sb);
-#endif
 	kfree(sbi->s_vhdr_buf);
 	kfree(sbi->s_backup_vhdr_buf);
 	unload_nls(sbi->nls);
@@ -473,6 +324,7 @@ static int hfsplus_statfs(struct dentry *dentry, struct kstatfs *buf)
 
 static int hfsplus_remount(struct super_block *sb, int *flags, char *data)
 {
+	sync_filesystem(sb);
 	if ((*flags & MS_RDONLY) == (sb->s_flags & MS_RDONLY))
 		return 0;
 	if (!(*flags & MS_RDONLY)) {
@@ -495,18 +347,9 @@ static int hfsplus_remount(struct super_block *sb, int *flags, char *data)
 			*flags |= MS_RDONLY;
 		} else if (vhdr->attributes &
 				cpu_to_be32(HFSPLUS_VOL_JOURNALED)) {
-#ifndef CONFIG_HFSPLUS_JOURNAL /* TODO: place of this function should be above unmount check */
 			pr_warn("filesystem is marked journaled, leaving read-only.\n");
 			sb->s_flags |= MS_RDONLY;
 			*flags |= MS_RDONLY;
-#else
-                       if (hfsplus_journaled_check(sb)) {
-                               pr_warn("HFS+-fs: Filesystem is marked journaled, leaving read-only.\n");
-                               sb->s_flags |= MS_RDONLY;
-                               *flags |= MS_RDONLY;
-                       } else
-                               printk("HFS+-fs: Able to mount journaled hfsplus volume in read-write mode\n");
-#endif
 		}
 	}
 	return 0;
@@ -533,11 +376,8 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	struct inode *root, *inode;
 	struct qstr str;
 	struct nls_table *nls = NULL;
-    u64 last_fs_block, last_fs_page;
+	u64 last_fs_block, last_fs_page;
 	int err;
-#ifdef CONFIG_HFSPLUS_JOURNAL
-	int jnl_ret;
-#endif
 
 	err = -ENOMEM;
 	sbi = kzalloc(sizeof(*sbi), GFP_KERNEL);
@@ -580,42 +420,6 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		pr_err("wrong filesystem version\n");
 		goto out_free_vhdr;
 	}
-#ifdef CONFIG_HFSPLUS_JOURNAL
-	hfsplus_journaled_init(sb, vhdr);
-	if (sbi->jnl.journaled == HFSPLUS_JOURNAL_PRESENT) {
-		if (jnl_ret = hfsplus_journaled_check(sb)) {
-			if (!silent)
-				printk("HFS+-fs: Error in journal, use the force option at your own risk, mounting read-only.\n");
-			if (sbi->s_vhdr == NULL) {
-				printk("HFS+-fs: Error in Volume Header\n");
-				goto out_free_vhdr;
-			}
-
-			#if HFS_DISKINFO
-			if(HFSPLUS_JOURNAL_SKIP_REPLAY == jnl_ret)
-			{
-			    if(test_bit(HFSPLUS_SB_FORCE, &sbi->flags))
-			    {
-			        /* have some journals, and force into rw mode */	    
-				    printk("HFS+-fs: with force option, mount %s read-write!\n", sb->s_id);
-				}
-				else
-				{				    
-			        sb->s_flags |= MS_RDONLY;
-			        hfs_set_disk_info(sb->s_id, "journal non-empty");		
-				}
-			}
-			else
-			#endif
-			{			
-			    sb->s_flags |= MS_RDONLY;
-			}
-			
-		} else
-			hfs_dbg(JOURNAL, "HFS+-fs: No problem in journal. Should be able to mount hfsplus volume in read-write mode\n");
-	}
-#endif /* CONFIG_HFSPLUS_JOURNAL */
-	
 	sbi->total_blocks = be32_to_cpu(vhdr->total_blocks);
 	sbi->free_blocks = be32_to_cpu(vhdr->free_blocks);
 	sbi->next_cnid = be32_to_cpu(vhdr->next_cnid);
@@ -629,39 +433,25 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		be32_to_cpu(vhdr->rsrc_clump_sz) >> sbi->alloc_blksz_shift;
 	if (!sbi->rsrc_clump_blocks)
 		sbi->rsrc_clump_blocks = 1;
-#if 0 
-	//err = generic_check_addressable(sbi->alloc_blksz_shift,
-	err = generic_check_addressable(12,
-					sbi->total_blocks);
-	if (err) {
+
+	err = -EFBIG;
+	last_fs_block = sbi->total_blocks - 1;
+	last_fs_page = (last_fs_block << sbi->alloc_blksz_shift) >>
+			PAGE_CACHE_SHIFT;
+
+	if ((last_fs_block > (sector_t)(~0ULL) >> (sbi->alloc_blksz_shift - 9)) ||
+	    (last_fs_page > (pgoff_t)(~0ULL))) {
 		pr_err("filesystem size too large\n");
-		err = -EFBIG;
 		goto out_free_vhdr;
 	}
-#else
-    err = -EFBIG;
-    last_fs_block = sbi->total_blocks - 1;
-    last_fs_page = (last_fs_block << sbi->alloc_blksz_shift) >>
-            PAGE_CACHE_SHIFT;
 
-    if ((last_fs_block > (sector_t)(~0ULL) >> (sbi->alloc_blksz_shift - 9)) ||
-        (last_fs_page > (pgoff_t)(~0ULL))) {
-        pr_err("filesystem size too large\n");
-        goto out_free_vhdr;
-    }
-#endif
 	/* Set up operations so we can load metadata */
 	sb->s_op = &hfsplus_sops;
 	sb->s_maxbytes = MAX_LFS_FILESIZE;
 
 	if (!(vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_UNMNT))) {
-#ifndef CONFIG_HFSPLUS_JOURNAL
 		pr_warn("Filesystem was not cleanly unmounted, running fsck.hfsplus is recommended.  mounting read-only.\n");
 		sb->s_flags |= MS_RDONLY;
-#else
-		pr_warn("HFS+-fs: Filesystem was not cleanly unmounted, "
-				"running fsck.hfsplus is recommended.\n");
-#endif
 	} else if (test_and_clear_bit(HFSPLUS_SB_FORCE, &sbi->flags)) {
 		/* nothing */
 	} else if (vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_SOFTLOCK)) {
@@ -669,10 +459,8 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		sb->s_flags |= MS_RDONLY;
 	} else if ((vhdr->attributes & cpu_to_be32(HFSPLUS_VOL_JOURNALED)) &&
 			!(sb->s_flags & MS_RDONLY)) {
-#ifndef CONFIG_HFSPLUS_JOURNAL
 		pr_warn("write access to a journaled filesystem is not supported, use the force option at your own risk, mounting read-only.\n");
 		sb->s_flags |= MS_RDONLY;
-#endif /* CONFIG_HFSPLUS_JOURNAL */
 	}
 
 	err = -EINVAL;
@@ -716,11 +504,7 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	}
 
 	sb->s_d_op = &hfsplus_dentry_operations;
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,4,0)
 	sb->s_root = d_make_root(root);
-#else
-	sb->s_root = d_alloc_root(root);
-#endif
 	if (!sb->s_root) {
 		err = -ENOMEM;
 		goto out_put_alloc_file;
@@ -731,7 +515,9 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 	err = hfs_find_init(sbi->cat_tree, &fd);
 	if (err)
 		goto out_put_root;
-	hfsplus_cat_build_key(sb, fd.search_key, HFSPLUS_ROOT_CNID, &str);
+	err = hfsplus_cat_build_key(sb, fd.search_key, HFSPLUS_ROOT_CNID, &str);
+	if (unlikely(err < 0))
+		goto out_put_root;
 	if (!hfs_brec_read(&fd, &entry, sizeof(entry))) {
 		hfs_find_exit(&fd);
 		if (entry.type != cpu_to_be16(HFSPLUS_FOLDER))
@@ -750,25 +536,12 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 		 * H+LX == hfsplusutils, H+Lx == this driver, H+lx is unused
 		 * all three are registered with Apple for our use
 		 */
-#ifdef CONFIG_HFSPLUS_JOURNAL
-		if (sbi->jnl.journaled == HFSPLUS_JOURNAL_PRESENT) {
-			vhdr->last_mount_vers = cpu_to_be32(HFSP_MOUNT_JOURNALED_VERSION);
-		}
-		else
-#endif
 		vhdr->last_mount_vers = cpu_to_be32(HFSP_MOUNT_VERSION);
 		vhdr->modify_date = hfsp_now2mt();
 		be32_add_cpu(&vhdr->write_count, 1);
 		vhdr->attributes &= cpu_to_be32(~HFSPLUS_VOL_UNMNT);
 		vhdr->attributes |= cpu_to_be32(HFSPLUS_VOL_INCNSTNT);
-#ifdef CONFIG_HFSPLUS_JOURNAL
-		jnl_ret = hfsplus_journaled_start_transaction(NULL, sb);
-#endif
 		hfsplus_sync_fs(sb, 1);
-#ifdef CONFIG_HFSPLUS_JOURNAL
-	if (jnl_ret == HFSPLUS_JOURNAL_SUCCESS)
-		hfsplus_journaled_end_transaction(NULL, sb);
-#endif
 
 		if (!sbi->hidden_dir) {
 			mutex_lock(&sbi->vh_mutex);
@@ -778,9 +551,8 @@ static int hfsplus_fill_super(struct super_block *sb, void *data, int silent)
 				err = -ENOMEM;
 				goto out_put_root;
 			}
-			
-			err = hfsplus_create_cat(sbi->hidden_dir->i_ino, root, &str,
-					   sbi->hidden_dir);
+			err = hfsplus_create_cat(sbi->hidden_dir->i_ino, root,
+						 &str, sbi->hidden_dir);
 			if (err) {
 				mutex_unlock(&sbi->vh_mutex);
 				goto out_put_hidden_dir;
@@ -852,9 +624,7 @@ static struct inode *hfsplus_alloc_inode(struct super_block *sb)
 static void hfsplus_i_callback(struct rcu_head *head)
 {
 	struct inode *inode = container_of(head, struct inode, i_rcu);
-#if LINUX_VERSION_CODE <= KERNEL_VERSION(3,5,0)
-	INIT_LIST_HEAD(&inode->i_dentry);
-#endif
+
 	kmem_cache_free(hfsplus_inode_cachep, HFSPLUS_I(inode));
 }
 
@@ -891,28 +661,6 @@ static int __init init_hfsplus_fs(void)
 {
 	int err;
 
-#if HFS_DISKINFO
-    /* create proc file /proc/diskinfo */
-    if (NULL == proc_create(HFSPLUS_PROC_FILE, 0755, NULL, &hfsproc_op))    
-    {
-        pr_err("create /proc/%s failed!\n", HFSPLUS_PROC_FILE);
-        return -ENOMEM;
-    }
-
-    if(NULL == (hfsinfo = kzalloc(sizeof(hfs_info_s) * HFS_INFO_NUMS, GFP_KERNEL)))
-    {
-        pr_err("kmalloc mem for hfsinfo failed!\n");
-        return -ENOMEM;
-    }
-
-    for(err=0; err < HFS_INFO_NUMS; err++ )
-    {
-        hfsinfo[err].used = false;
-        hfsinfo[err].disk_name[0] = '\0';
-    }
-    
-#endif
-
 	hfsplus_inode_cachep = kmem_cache_create("hfsplus_icache",
 		HFSPLUS_INODE_SIZE, 0, SLAB_HWCACHE_ALIGN,
 		hfsplus_init_once);
@@ -946,11 +694,6 @@ static void __exit exit_hfsplus_fs(void)
 	rcu_barrier();
 	hfsplus_destroy_attr_tree_cache();
 	kmem_cache_destroy(hfsplus_inode_cachep);
-
-#if HFS_DISKINFO
-	remove_proc_entry(HFSPLUS_PROC_FILE, NULL);
-	kfree(hfsinfo);
-#endif
 }
 
 module_init(init_hfsplus_fs)
