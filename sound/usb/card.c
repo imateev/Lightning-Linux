@@ -525,6 +525,8 @@ static int usb_audio_probe(struct usb_interface *intf,
 			    (0x42 == USB_ID_PRODUCT(id))
 			    #elif defined(CONFIG_AURALIC_POLARIS)
 			    (0x44 == USB_ID_PRODUCT(id))
+			    #elif defined(CONFIG_AURALIC_ARIES_G2)
+			    (0x46 == USB_ID_PRODUCT(id))
 			    #endif
 			    ) {
 				err = snd_usb_audio_create(intf, dev, 0, quirk,
