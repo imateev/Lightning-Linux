@@ -878,6 +878,7 @@ CONFIG_AURALIC_ARIES=y
 # CONFIG_AURALIC_DAC is not set
 # CONFIG_AURALIC_ALTAIR is not set
 # CONFIG_AURALIC_POLARIS is not set
+# CONFIG_AURALIC_ARIES_G2 is not set
 
 #
 # Bus devices
