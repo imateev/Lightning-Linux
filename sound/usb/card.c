@@ -526,7 +526,10 @@ static int usb_audio_probe(struct usb_interface *intf,
 			    #elif defined(CONFIG_AURALIC_POLARIS)
 			    (0x44 == USB_ID_PRODUCT(id))
 			    #elif defined(CONFIG_AURALIC_ARIES_G2)
-			    (0x46 == USB_ID_PRODUCT(id))
+			    /*
+			    aries g2 has 2 usb sound cards, one for dit, one for llk, but not use at the same time
+			    */
+			    (0x46 == USB_ID_PRODUCT(id) || 0x48 == USB_ID_PRODUCT(id))
 			    #endif
 			    ) {
 				err = snd_usb_audio_create(intf, dev, 0, quirk,
