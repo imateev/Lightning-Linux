@@ -515,6 +515,7 @@ static int usb_audio_probe(struct usb_interface *intf,
 		 * now look for an empty slot and create a new card instance
 		 */
 		#if defined(CONFIG_AURALIC_SOUND_CARD_ID_BIND)
+		int idx = 0;		
 		if (enable[0] && ! usb_chip[0] &&
 			    (0x1511 == USB_ID_VENDOR(id)) &&
 			    #if defined(CONFIG_AURALIC_ARIES)
@@ -532,15 +533,27 @@ static int usb_audio_probe(struct usb_interface *intf,
 			    (0x46 == USB_ID_PRODUCT(id) || 0x48 == USB_ID_PRODUCT(id))
 			    #endif
 			    ) {
-				err = snd_usb_audio_create(intf, dev, 0, quirk,
+			    #if defined(CONFIG_AURALIC_ARIES_G2)
+			    /* for aries g2, reserve id 0 for dit, id 2 for llk */
+			    if(0x48 == USB_ID_PRODUCT(id))
+				    idx = 2; //llk
+				#endif
+				
+				err = snd_usb_audio_create(intf, dev, idx, quirk,
 							   &chip);
 				if (err < 0)
 					goto __error;
 				chip->pm_intf = intf;
-				printk(KERN_DEBUG"auralic cread sound card0 for %04x:%04x.\n", USB_ID_VENDOR(id), USB_ID_PRODUCT(id));
+				printk(KERN_DEBUG"auralic cread sound card %d for %04x:%04x.\n", idx, USB_ID_VENDOR(id), USB_ID_PRODUCT(id));
 			}
 		else
 		for (i = 1; i < SNDRV_CARDS; i++)
+		{
+		    #if defined(CONFIG_AURALIC_ARIES_G2)
+		    if(2 == i) // for aries g2, id 2 is reserved for llk, so skip it
+		        continue;
+		    #endif
+		    
 			if (enable[i] && ! usb_chip[i] &&
 			    (vid[i] == -1 || vid[i] == USB_ID_VENDOR(id)) &&
 			    (pid[i] == -1 || pid[i] == USB_ID_PRODUCT(id))) {
@@ -552,6 +565,7 @@ static int usb_audio_probe(struct usb_interface *intf,
 				printk(KERN_DEBUG"auralic cread sound card%d for %04x:%04x.\n", i, USB_ID_VENDOR(id), USB_ID_PRODUCT(id));
 				break;
 			}
+		}
 		#else
 		for (i = 0; i < SNDRV_CARDS; i++)
 			if (enable[i] && ! usb_chip[i] &&
