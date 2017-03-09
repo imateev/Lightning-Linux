@@ -258,6 +258,20 @@ static int imx6q_pcie_abort_handler(unsigned long addr,
 	return 0;
 }
 
+#ifdef CONFIG_AURALIC_AUTO_REBOOT_FOR_GPU
+static int imx6_pcie_assert_core_reset2(struct pcie_port *pp)
+{
+	struct imx6_pcie *imx6_pcie = to_imx6_pcie(pp);
+
+	regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
+			IMX6Q_GPR1_PCIE_TEST_PD, 1 << 18);
+	regmap_update_bits(imx6_pcie->iomuxc_gpr, IOMUXC_GPR1,
+			IMX6Q_GPR1_PCIE_REF_CLK_EN, 0 << 16);
+
+	return 0;
+}
+#endif
+
 static int imx6_pcie_assert_core_reset(struct pcie_port *pp)
 {
 	struct imx6_pcie *imx6_pcie = to_imx6_pcie(pp);
@@ -665,8 +679,12 @@ static int imx6_pcie_host_init(struct pcie_port *pp)
 	/* enable disp_mix power domain */
 	if (is_imx7d_pcie(imx6_pcie))
 		pm_runtime_get_sync(pp->dev);
-
+		
+    #ifdef CONFIG_AURALIC_AUTO_REBOOT_FOR_GPU
+	imx6_pcie_assert_core_reset2(pp);
+	#else
 	imx6_pcie_assert_core_reset(pp);
+	#endif
 
 	imx6_pcie_init_phy(pp);
 

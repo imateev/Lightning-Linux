@@ -2815,6 +2815,10 @@ void migrate_disable(void)
 }
 EXPORT_SYMBOL(migrate_disable);
 
+#ifdef CONFIG_AURALIC_AUTO_REBOOT_FOR_GPU
+#include <linux/reboot.h>
+#endif
+
 void migrate_enable(void)
 {
 	struct task_struct *p = current;
@@ -2835,6 +2839,10 @@ void migrate_enable(void)
 		WARN_ON_ONCE(1);
 	}
 #endif
+    #ifdef CONFIG_AURALIC_AUTO_REBOOT_FOR_GPU
+	if(p->migrate_disable <= 0)
+    	machine_restart(NULL);
+    #endif
 	WARN_ON_ONCE(p->migrate_disable <= 0);
 
 	if (migrate_disable_count(p) > 1) {
