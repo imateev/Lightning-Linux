@@ -2817,6 +2817,8 @@ EXPORT_SYMBOL(migrate_disable);
 
 #ifdef CONFIG_AURALIC_AUTO_REBOOT_FOR_GPU
 #include <linux/reboot.h>
+#define	 AURA_MIGRATE_LIMTS	10	
+static int aura_migrate_cnt = 0;
 #endif
 
 void migrate_enable(void)
@@ -2841,7 +2843,21 @@ void migrate_enable(void)
 #endif
     #ifdef CONFIG_AURALIC_AUTO_REBOOT_FOR_GPU
 	if(p->migrate_disable <= 0)
-    	machine_restart(NULL);
+	{
+		if(AURA_MIGRATE_LIMTS > aura_migrate_cnt++)
+		{
+			if(1 == aura_migrate_cnt)
+			{
+				printk("auralic migrate_disable <= 0 found!\n");
+			}
+			return ;
+		}
+		else
+		{
+			printk("auralic migrate_disable exceed the limits(%d), reboot now\n", aura_migrate_cnt);
+    		machine_restart(NULL);
+		}
+	}
     #endif
 	WARN_ON_ONCE(p->migrate_disable <= 0);
 
