@@ -93,34 +93,50 @@
 			enable-active-high;
 		};
 	};
-    #if 0
+    #if 1
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
 		pinctrl-0 = <&pinctrl_gpio_keys>;
 
+		key1 {
+			label = "key 1";
+			gpios = <&gpio4 6 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+			linux,code = <21>;
+		};
+		
+		key2 {
+			label = "key 2";
+			gpios = <&gpio4 7 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+			linux,code = <22>;
+		};
+		
+		key3 {
+			label = "key 3";
+			gpios = <&gpio4 8 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+			linux,code = <24>;
+		};
+		
+		key4 {
+			label = "key 4";
+			gpios = <&gpio4 9 GPIO_ACTIVE_LOW>;
+			gpio-key,wakeup;
+			linux,code = <23>;
+		};
+		
 		power {
-			label = "Power Button";
-			gpios = <&gpio3 29 GPIO_ACTIVE_LOW>;
+			label = "power";
+			gpios = <&gpio4 11 GPIO_ACTIVE_LOW>;
 			gpio-key,wakeup;
-			linux,code = <KEY_POWER>;
-		};
-
-		volume-up {
-			label = "Volume Up";
-			gpios = <&gpio1 4 GPIO_ACTIVE_LOW>;
-			gpio-key,wakeup;
-			linux,code = <KEY_VOLUMEUP>;
-		};
-
-		volume-down {
-			label = "Volume Down";
-			gpios = <&gpio1 5 GPIO_ACTIVE_LOW>;
-			gpio-key,wakeup;
-			linux,code = <KEY_VOLUMEDOWN>;
+			linux,code = <25>;
 		};
 	};
+	#endif
 
+    #if 0
 	sound {
 		compatible = "fsl,imx6q-sabresd-wm8962",
 			   "fsl,imx-audio-wm8962";
