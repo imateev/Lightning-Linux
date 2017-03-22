@@ -81,7 +81,8 @@
 			next-level-cache = <&L2>;
 		};
 	};
-
+	
+    #if 0
 	reserved-memory {
 		#address-cells = <1>;
 		#size-cells = <1>;
@@ -95,7 +96,8 @@
 			linux,cma-default;
 		};
 	};
-
+    #endif
+    
 	soc {
 		busfreq: busfreq {
 			compatible = "fsl,imx_busfreq";
