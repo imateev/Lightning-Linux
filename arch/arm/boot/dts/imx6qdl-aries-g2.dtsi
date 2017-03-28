@@ -93,7 +93,7 @@
 			enable-active-high;
 		};
 	};
-    #if 1
+    #if 0
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
@@ -386,6 +386,12 @@
 	imx6qdl-sabresd {
 		pinctrl_hog: hoggrp {
 			fsl,pins = <
+			    MX6QDL_PAD_KEY_COL0__GPIO4_IO06     0x1b0b0//21
+			    MX6QDL_PAD_KEY_ROW0__GPIO4_IO07     0x1b0b0//22
+			    MX6QDL_PAD_KEY_COL1__GPIO4_IO08     0x1b0b0//24
+			    MX6QDL_PAD_KEY_ROW1__GPIO4_IO09     0x1b0b0//23
+			    MX6QDL_PAD_KEY_ROW2__GPIO4_IO11     0x1b0b0//25
+			    
 			    MX6QDL_PAD_SD2_DAT2__GPIO1_IO13     0x1b0b0//IRM
 			    MX6QDL_PAD_EIM_OE__GPIO2_IO25       0x80000000//miso
 			    MX6QDL_PAD_EIM_CS0__GPIO2_IO23      0x80000000//clk
