@@ -12,7 +12,7 @@
 
 /dts-v1/;
 
-#include "imx6q.dtsi"
+#include "imx6qaries-g2.dtsi"
 #include "imx6qdl-aries-g2.dtsi"
 
 / {
