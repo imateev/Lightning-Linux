@@ -93,7 +93,7 @@
 			enable-active-high;
 		};
 	};
-    #if 0
+
 	gpio-keys {
 		compatible = "gpio-keys";
 		pinctrl-names = "default";
@@ -134,7 +134,6 @@
 			linux,code = <25>;
 		};
 	};
-	#endif
 
     #if 0
 	sound {
