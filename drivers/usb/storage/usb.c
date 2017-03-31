@@ -955,6 +955,8 @@ int usb_stor_probe1(struct us_data **pus,
 		host->auralic_id = AURALIC_USB0_ID;
 	else if(0 == strncmp(dev_name(&intf->dev), "2-1.2", strlen("2-1.2")))
 		host->auralic_id = AURALIC_USB1_ID;
+    else if(0 == strncmp(dev_name(&intf->dev), "2-1.4", strlen("2-1.4")))// aries g2
+		host->auralic_id = AURALIC_USB0_ID;
     #endif 
 	#endif
 	host->max_cmd_len = 16;
