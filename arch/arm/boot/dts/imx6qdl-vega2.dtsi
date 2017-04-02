@@ -44,6 +44,7 @@
 		#address-cells = <1>;
 		#size-cells = <0>;
 
+        #if 0
 		reg_audio: regulator@2 {
 			compatible = "regulator-fixed";
 			reg = <2>;
@@ -51,6 +52,7 @@
 			gpio = <&gpio4 10 0>;
 			enable-active-high;
 		};
+		#endif
 
 		reg_pcie: regulator@3 {
 			compatible = "regulator-fixed";
