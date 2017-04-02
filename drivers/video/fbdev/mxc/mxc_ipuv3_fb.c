@@ -54,6 +54,7 @@
 #include <linux/of_gpio.h>
 
 #include "mxc_dispdrv.h"
+#include <linux/auralic_logo.h>
 
 /*
  * Driver name
@@ -3665,11 +3666,11 @@ extern void lcd_on(void);
 void aura_display_logo(struct fb_info *fbi)
 {
 	unsigned long i;
-	int *buff= (int *)fbi->screen_base;
+	unsigned char *buff= (unsigned char *)fbi->screen_base;
 	//memset((char *)fbi->screen_base, 0xc0, fbi->screen_size);
 	
-	for(i=0; i<fbi->screen_size/4; i++)
-		buff[i]=i;
+	for(i=0; i<1536000; i++)
+		buff[i] = auralic_logo[i];
 	lcd_on();
 }
 /*!
