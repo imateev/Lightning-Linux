@@ -380,6 +380,11 @@
 				MX6QDL_PAD_SD3_CLK__GPIO7_IO03      0x1b0b0//xtal_sel
 				MX6QDL_PAD_SD3_DAT1__GPIO7_IO05     0x1b0b0//mclk_sel
 				MX6QDL_PAD_SD3_DAT0__GPIO7_IO04     0x1b0b0//power_en
+				
+				MX6QDL_PAD_SD1_CLK__GPIO1_IO20      0x1b0b0//pin156
+				MX6QDL_PAD_KEY_COL3__GPIO4_IO12     0x1b0b0//pin158
+				MX6QDL_PAD_SD2_CMD__GPIO1_IO11      0x1b0b0//ak4113 interrupt1
+				MX6QDL_PAD_SD2_DAT1__GPIO1_IO14     0x1b0b0//ak4113 interrupt0
 			    
 				MX6QDL_PAD_NANDF_D0__GPIO2_IO00 0x80000000
 				MX6QDL_PAD_NANDF_D1__GPIO2_IO01 0x80000000
@@ -678,6 +683,22 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_pwm1>;
 	status = "okay";
+};
+
+&i2c3 {//ak4113
+	clock-frequency = <80000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c3>;
+	status = "okay";
+
+	codec: ak4113@10 {
+		compatible = "fsl,auralic";
+		reg = <0x10>; 
+		//clocks = <&clks 201>;
+		clocks = <&clks IMX6QDL_CLK_CKO>;
+		vdd-supply = <&reg_sensor>;
+		vddio-supply = <&reg_sensor>;
+	};
 };
 
 #if 0
