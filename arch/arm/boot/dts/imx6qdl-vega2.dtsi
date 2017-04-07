@@ -685,6 +685,21 @@
 	status = "okay";
 };
 
+&i2c1 {//es9028 & volume controler
+	clock-frequency = <80000>;
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_i2c1>;
+	status = "okay";
+
+	dac: es9028@48 {
+		compatible = "fsl,es9028";
+		reg = <0x48>; 
+		clocks = <&clks IMX6QDL_CLK_CKO>;
+		vdd-supply = <&reg_sensor>;
+		vddio-supply = <&reg_sensor>;
+	};
+};
+
 &i2c3 {//ak4113
 	clock-frequency = <80000>;
 	pinctrl-names = "default";
