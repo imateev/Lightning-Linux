@@ -453,6 +453,20 @@
 			>;
 		};
 
+		pinctrl_flexcan1: flexcan1grp {
+			fsl,pins = <
+				MX6QDL_PAD_GPIO_7__FLEXCAN1_TX		0x1b0b0
+				MX6QDL_PAD_GPIO_8__FLEXCAN1_RX		0x1b0b0
+			>;
+		};
+
+		pinctrl_flexcan2: flexcan2grp {
+			fsl,pins = <
+				MX6QDL_PAD_KEY_COL4__FLEXCAN2_TX 0x80000000
+				MX6QDL_PAD_KEY_ROW4__FLEXCAN2_RX 0x80000000
+			>;
+		};
+
 		pinctrl_hdmi_cec: hdmicecgrp {
 			fsl,pins = <
 				MX6QDL_PAD_KEY_ROW2__HDMI_TX_CEC_LINE 0x108b0
@@ -754,5 +768,11 @@
 	non-removable;
 	no-1-8-v;
 	keep-power-in-suspend;
+	status = "okay";
+};
+
+&can1 {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl_flexcan1>;
 	status = "okay";
 };
