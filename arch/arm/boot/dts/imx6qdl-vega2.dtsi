@@ -85,6 +85,13 @@
 			enable-active-high;
 		};
 
+		reg_usb_h1_vbus: regulator@1 {
+			compatible = "regulator-fixed";
+			reg = <1>;
+			regulator-name = "usb_h1_vbus";
+			enable-active-high;
+		};
+
 		reg_usb_otg_vbus: regulator@5 {
 			compatible = "regulator-fixed";
 			reg = <2>;
@@ -747,6 +754,7 @@
 };
 
 &usbh1 {
+	vbus-supply = <&reg_usb_h1_vbus>;
 	status = "okay";
 };
 
