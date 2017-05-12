@@ -707,7 +707,7 @@
 };
 
 &i2c1 {//es9028 & volume controler
-	clock-frequency = <80000>;
+	clock-frequency = <300000>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_i2c1>;
 	status = "okay";
