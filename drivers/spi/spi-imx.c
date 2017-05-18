@@ -1203,7 +1203,7 @@ static int spi_imx_probe(struct platform_device *pdev)
 		ret = devm_gpio_request(&pdev->dev, spi_imx->chipselect[i],
 					DRIVER_NAME);
 		if (ret) {
-			dev_err(&pdev->dev, "can't get cs gpios\n");
+			dev_err(&pdev->dev, "can't get cs gpios, %d\n", ret);
 			goto out_master_put;
 		}
 	}
