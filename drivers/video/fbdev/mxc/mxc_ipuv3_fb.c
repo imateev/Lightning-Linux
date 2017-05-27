@@ -3665,12 +3665,31 @@ static int mxcfb_get_of_property(struct platform_device *pdev,
 extern void lcd_on(void);
 void aura_display_logo(struct fb_info *fbi)
 {
-	unsigned long i;
+	unsigned long x,y;
 	unsigned char *buff= (unsigned char *)fbi->screen_base;
-	//memset((char *)fbi->screen_base, 0xc0, fbi->screen_size);
 	
-	for(i=0; i<1536000; i++)
-		buff[i] = auralic_logo[i];
+	for(y=0; y<430; y++)
+	{	    
+	    for(x=0; x<800; x++)
+	    {
+	        buff[y*3200 + x*4]     = auralic_logo[y*3200 + x*4 + 160000];
+	        buff[y*3200 + x*4 + 1] = auralic_logo[y*3200 + x*4 + 160000 + 1];
+	        buff[y*3200 + x*4 + 2] = auralic_logo[y*3200 + x*4 + 160000 + 2];
+	        buff[y*3200 + x*4 + 3] = auralic_logo[y*3200 + x*4 + 160000 + 3];
+	    }
+	}
+	
+	for(y=300; y<302; y++)
+	{	    
+	    for(x=132; x<668; x++)
+	    {
+	        buff[y*3200 + x*4]     = 60;
+	        buff[y*3200 + x*4 + 1] = 60; 
+	        buff[y*3200 + x*4 + 2] = 60;
+	        buff[y*3200 + x*4 + 3] = 60;
+	    }
+	}
+	
 	lcd_on();
 }
 /*!
