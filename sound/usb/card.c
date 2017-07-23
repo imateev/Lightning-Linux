@@ -516,8 +516,8 @@ static int usb_audio_probe(struct usb_interface *intf,
 		 */
 		#if defined(CONFIG_AURALIC_SOUND_CARD_ID_BIND)
 		int idx = 0;		
-		if (enable[0] && ! usb_chip[0] &&
-			    (0x1511 == USB_ID_VENDOR(id)) &&
+		//if (enable[0] && ! usb_chip[0] &&
+		if (    (0x1511 == USB_ID_VENDOR(id)) &&
 			    #if defined(CONFIG_AURALIC_ARIES)
 			    (0x37 == USB_ID_PRODUCT(id) || 0x39 == USB_ID_PRODUCT(id))
 			    #elif defined(CONFIG_AURALIC_MINI)
