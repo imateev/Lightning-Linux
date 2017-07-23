@@ -552,14 +552,19 @@ static int usb_audio_probe(struct usb_interface *intf,
 		for (i = 1; i < SNDRV_CARDS; i++)
 		{
 		    #if defined(CONFIG_AURALIC_ARIES_G2)
-		    if(2 == i) // for aries g2, id 2 is reserved for llk, so skip it
+		    if((0x1511 == USB_ID_VENDOR(id)) && (0x48 == USB_ID_PRODUCT(id)))
+		        idx = 2;
+		    else if(i == 2) //for aries g2, id 2 is reserved for llk, so skip it
 		        continue;
 		    #endif
-		    
+		    		    
 			if (enable[i] && ! usb_chip[i] &&
 			    (vid[i] == -1 || vid[i] == USB_ID_VENDOR(id)) &&
 			    (pid[i] == -1 || pid[i] == USB_ID_PRODUCT(id))) {
-				err = snd_usb_audio_create(intf, dev, i, quirk,
+			    if(idx == 2)
+                    i=idx;
+                
+                err = snd_usb_audio_create(intf, dev, i, quirk,
 							   &chip);
 				if (err < 0)
 					goto __error;
