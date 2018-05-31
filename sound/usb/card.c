@@ -530,7 +530,7 @@ static int usb_audio_probe(struct usb_interface *intf,
 			    /*
 			    aries g2 has 2 usb sound cards, one for dit, one for llk, but not use at the same time
 			    */
-			    (0x46 == USB_ID_PRODUCT(id) || 0x48 == USB_ID_PRODUCT(id))
+			    (0x46 == USB_ID_PRODUCT(id) || 0x48 == USB_ID_PRODUCT(id) || 0x54 == USB_ID_PRODUCT(id))
 			    #elif defined(CONFIG_AURALIC_VEGA_G2)
 			    (0x02 == USB_ID_PRODUCT(id))//1511 0002 = card 0, 1511 004 = card1
 			    #endif

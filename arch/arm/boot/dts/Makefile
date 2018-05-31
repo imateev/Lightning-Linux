@@ -319,6 +319,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-sabrelite.dtb \
 	imx6q-aries-g2.dtb \
 	imx6q-vega2.dtb \
+	imx6q-leo.dtb \
 	imx6q-sabresd.dtb \
 	imx6q-sabresd-btwifi.dtb \
 	imx6q-sabresd-hdcp.dtb \
