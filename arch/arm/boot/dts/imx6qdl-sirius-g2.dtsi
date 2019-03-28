@@ -239,10 +239,9 @@
 	fsl,ldb-di1-parent = <&clks IMX6QDL_CLK_PLL2_PFD0_352M>;
 };
 
-#if 0
 &ecspi1 {
 	fsl,spi-num-chipselects = <1>;
-	cs-gpios = <&gpio4 9 0>;
+	cs-gpios = <&gpio2 30 0>;
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_ecspi1>;
 	status = "okay";
@@ -250,12 +249,11 @@
 	flash: m25p80@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
-		compatible = "st,m25p32";
+		compatible = "winbond,w25q128";
 		spi-max-frequency = <20000000>;
 		reg = <0>;
 	};
 };
-#endif
 
 &fec {
 	pinctrl-names = "default";
@@ -372,7 +370,6 @@
 				MX6QDL_PAD_CSI0_DAT18__GPIO6_IO04   0x1b0b0 //IRM //103
 				MX6QDL_PAD_CSI0_DAT13__GPIO5_IO31   0x1b0b0 //int0_asrc1 //105
 				MX6QDL_PAD_CSI0_DAT12__GPIO5_IO30   0x1b0b0 //int0_asrc2 //107
-                MX6QDL_PAD_EIM_D27__GPIO3_IO27      0x1b0b0//INT1_USBIN //32
 				MX6QDL_PAD_EIM_D23__GPIO3_IO23      0x1b0b0//INT0_USBIN	//34			
 				MX6QDL_PAD_EIM_D31__GPIO3_IO31      0x1b0b0//usb_usbin_rst //36
 				MX6QDL_PAD_EIM_D24__GPIO3_IO24      0x1b0b0//ready_link_down //38
@@ -384,6 +381,7 @@
 				MX6QDL_PAD_EIM_D20__GPIO3_IO20      0x1b0b0//usb_rst_hub //23
 				MX6QDL_PAD_EIM_RW__GPIO2_IO26       0x1b0b0 //rst_dir //25
                 MX6QDL_PAD_EIM_A25__GPIO5_IO02      0x1b0b0 //rst_asrc //27
+                MX6QDL_PAD_EIM_D27__GPIO3_IO27      0x1b0b0 //ota_prog //32
 
 				
 				MX6QDL_PAD_SD1_CLK__GPIO1_IO20      0x1b0b0//pin156
@@ -443,10 +441,9 @@
 
 		pinctrl_ecspi1: ecspi1grp {
 			fsl,pins = <
-				MX6QDL_PAD_KEY_COL1__ECSPI1_MISO	0x100b1
-				MX6QDL_PAD_KEY_ROW0__ECSPI1_MOSI	0x100b1
-				MX6QDL_PAD_KEY_COL0__ECSPI1_SCLK	0x100b1
-				MX6QDL_PAD_KEY_ROW1__GPIO4_IO09		0x1b0b0
+                MX6QDL_PAD_EIM_D17__ECSPI1_MISO     0x100b1
+                MX6QDL_PAD_EIM_D18__ECSPI1_MOSI     0x100b1
+                MX6QDL_PAD_EIM_D16__ECSPI1_SCLK     0x100b1
 			>;
 		};
 
@@ -729,9 +726,9 @@
 	pinctrl-0 = <&pinctrl_i2c1>;
 	status = "okay";
 
-	dac: asrc@66 {
+	dac: asrc@33 {
 		compatible = "fsl,asrc";
-		reg = <0x66>; 
+		reg = <0x33>; 
 		clocks = <&clks IMX6QDL_CLK_CKO>;
 		vdd-supply = <&reg_sensor>;
 		vddio-supply = <&reg_sensor>;

@@ -535,6 +535,8 @@ static int usb_audio_probe(struct usb_interface *intf,
 			    (0x02 == USB_ID_PRODUCT(id))//1511 0002 = card 0, 1511 004 = card1
 			    #elif defined(CONFIG_AURALIC_SIRIUS_G2)
 			    (0x46 == USB_ID_PRODUCT(id) || 0x48 == USB_ID_PRODUCT(id) || 0x54 == USB_ID_PRODUCT(id))
+			    #elif defined(CONFIG_AURALIC_ALTAIR_G1)
+			    (0x02 == USB_ID_PRODUCT(id))//1511 0002 = card 0, 1511 004 = card1
 			    #endif
 			    ) {
 			    #if defined(CONFIG_AURALIC_ARIES_G2)

@@ -321,6 +321,7 @@ dtb-$(CONFIG_SOC_IMX6Q) += \
 	imx6q-vega2.dtb \
 	imx6q-leo.dtb \
 	imx6q-sirius-g2.dtb \
+	imx6q-altair-g1.dtb \
 	imx6q-sabresd.dtb \
 	imx6q-sabresd-btwifi.dtb \
 	imx6q-sabresd-hdcp.dtb \
