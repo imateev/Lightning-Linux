@@ -534,13 +534,20 @@ static int usb_audio_probe(struct usb_interface *intf,
 			    #elif defined(CONFIG_AURALIC_VEGA_G2)
 			    (0x02 == USB_ID_PRODUCT(id))//1511 0002 = card 0, 1511 004 = card1
 			    #elif defined(CONFIG_AURALIC_SIRIUS_G2)
-			    (0x46 == USB_ID_PRODUCT(id) || 0x48 == USB_ID_PRODUCT(id) || 0x54 == USB_ID_PRODUCT(id))
+			    (0x02 == USB_ID_PRODUCT(id)||0x46 == USB_ID_PRODUCT(id) || 0x48 == USB_ID_PRODUCT(id))
 			    #elif defined(CONFIG_AURALIC_ALTAIR_G1)
-			    (0x02 == USB_ID_PRODUCT(id))//1511 0002 = card 0, 1511 004 = card1
+			    (0x62 == USB_ID_PRODUCT(id))
 			    #endif
 			    ) {
 			    #if defined(CONFIG_AURALIC_ARIES_G2)
 			    /* for aries g2, reserve id 0 for dit, id 2 for llk */
+			    if(0x48 == USB_ID_PRODUCT(id))
+				    idx = 2; //llk
+				#endif
+			    #if defined(CONFIG_AURALIC_SIRIUS_G2)
+			    /* for sirius g2*/
+			    if(0x46 == USB_ID_PRODUCT(id))
+				    idx = 1; //dit
 			    if(0x48 == USB_ID_PRODUCT(id))
 				    idx = 2; //llk
 				#endif
@@ -561,11 +568,18 @@ static int usb_audio_probe(struct usb_interface *intf,
 		    else if(i == 2) //for aries g2, id 2 is reserved for llk, so skip it
 		        continue;
 		    #endif
+		    #if defined(CONFIG_AURALIC_SIRIUS_G2)
+		    if((0x1511 == USB_ID_VENDOR(id)) && (0x46 == USB_ID_PRODUCT(id)))
+		        idx = 1;
+            else if((0x1511 == USB_ID_VENDOR(id)) && (0x48 == USB_ID_PRODUCT(id)))
+		        idx = 2;
+            else if(i == 1 || i == 2) continue;
+		    #endif
 		    		    
 			if (enable[i] && ! usb_chip[i] &&
 			    (vid[i] == -1 || vid[i] == USB_ID_VENDOR(id)) &&
 			    (pid[i] == -1 || pid[i] == USB_ID_PRODUCT(id))) {
-			    if(idx == 2)
+			    if(idx == 2 || idx == 1)
                     i=idx;
                 
                 err = snd_usb_audio_create(intf, dev, i, quirk,

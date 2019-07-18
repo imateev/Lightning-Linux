@@ -1071,6 +1071,7 @@ void __init sanity_check_meminfo(void)
 	phys_addr_t memblock_limit = 0;
 	int highmem = 0;
 	phys_addr_t vmalloc_limit = __pa(vmalloc_min - 1) + 1;
+    //pr_notice("===%pa---%pa---%lu--%lu---%lu--%lu",&vmalloc_min,&vmalloc_limit,VMALLOC_END,VMALLOC_OFFSET,VMALLOC_START,VMALLOC_TOTAL);
 	struct memblock_region *reg;
 
 	for_each_memblock(memory, reg) {
@@ -1082,6 +1083,8 @@ void __init sanity_check_meminfo(void)
 			highmem = 1;
 		else
 			size_limit = vmalloc_limit - reg->base;
+        
+      //  pr_notice("%pa---%pa---%pa---%pa",&reg->size,&size_limit,&vmalloc_limit,&reg->base);
 
 
 		if (!IS_ENABLED(CONFIG_HIGHMEM) || cache_is_vipt_aliasing()) {
@@ -1095,7 +1098,6 @@ void __init sanity_check_meminfo(void)
 
 			if (reg->size > size_limit) {
 				phys_addr_t overlap_size = reg->size - size_limit;
-
 				pr_notice("Truncating RAM at %pa-%pa to -%pa",
 					  &block_start, &block_end, &vmalloc_limit);
 				memblock_remove(vmalloc_limit, overlap_size);

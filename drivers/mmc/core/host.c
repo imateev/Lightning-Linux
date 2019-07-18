@@ -37,6 +37,7 @@
 static DEFINE_IDR(mmc_host_idr);
 static DEFINE_SPINLOCK(mmc_host_lock);
 
+// added for mmc rescan,write '/sys/devices/xxx/mmc*/mmc*/rescan'  to rescan mmc
 static void mmc_host_classdev_release(struct device *dev)
 {
 	struct mmc_host *host = cls_dev_to_mmc_host(dev);
@@ -45,7 +46,36 @@ static void mmc_host_classdev_release(struct device *dev)
 	spin_unlock(&mmc_host_lock);
 	kfree(host);
 }
+/*
+static void mmc_host_classdev_release(struct device *dev)
+{
+    struct mmc_host *host = cls_dev_to_mmc_host(dev);
 
+    mutex_destroy(&host->slot.lock);
+    kfree(host);
+}
+///============By Yi =========================
+static ssize_t rescan_store(struct device *dev, struct device_attribute *attr,
+        const char *buf, size_t count)
+{
+    struct mmc_host *host = cls_dev_to_mmc_host(dev);
+    mmc_detect_change(host, 0);
+    mmc_host_rescan(host, 1, 0);
+    mmc_host_rescan(host, 1, 1);
+    return count;
+}
+
+static DEVICE_ATTR_WO(rescan);
+
+static struct attribute *mmc_host_attrs[] = {
+    &dev_attr_rescan.attr,
+    NULL,
+};
+
+//ATTRIBUTE_GROUPS(mmc_host);
+// ===========================================
+//end added by mmc rescan
+*/
 static struct class mmc_host_class = {
 	.name		= "mmc_host",
 	.dev_release	= mmc_host_classdev_release,

@@ -208,6 +208,23 @@ static int mmc_clock_opt_set(void *data, u64 val)
 DEFINE_SIMPLE_ATTRIBUTE(mmc_clock_fops, mmc_clock_opt_get, mmc_clock_opt_set,
 	"%llu\n");
 
+static int mmc_rescan_opt_set(void *data, u64 val)
+{
+	struct mmc_host *host = data;
+
+	if (val) {
+		if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered) {
+		    host->rescan_entered = 0;
+		}
+		mmc_detect_change(host, 0);
+	}
+
+	return 0;
+}
+
+DEFINE_SIMPLE_ATTRIBUTE(mmc_rescan_fops, NULL, mmc_rescan_opt_set,
+	"%llu\n");
+
 void mmc_add_host_debugfs(struct mmc_host *host)
 {
 	struct dentry *root;
@@ -228,6 +245,9 @@ void mmc_add_host_debugfs(struct mmc_host *host)
 
 	if (!debugfs_create_file("clock", S_IRUSR | S_IWUSR, root, host,
 			&mmc_clock_fops))
+		goto err_node;
+
+	if (!debugfs_create_file("rescan", S_IWUSR, root, host, &mmc_rescan_fops))
 		goto err_node;
 
 #ifdef CONFIG_MMC_CLKGATE
