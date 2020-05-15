@@ -260,6 +260,7 @@
 		#size-cells = <1>;
 		compatible = "fsl,ac9384-flash";
 		prog-gpios = <&gpio3 27 0>;
+        power-gpios = <&gpio5 2 0>;
 		spi-max-frequency = <20000000>;
 		reg = <0>;
 	};
@@ -796,7 +797,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc2>;
 	bus-width = <4>;
-	non-removable;
+	broken-cd;
 	no-1-8-v;
 	keep-power-in-suspend;
 	status = "okay";
@@ -805,7 +806,7 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_usdhc3>;
 	bus-width = <4>;
-	non-removable;
+	broken-cd;
 	no-1-8-v;
 	keep-power-in-suspend;
 	status = "okay";
