@@ -255,7 +255,7 @@ extern void *sg_io_buffer_hack;
 #endif
 
 static int blk_complete_sghdr_rq(struct request *rq, struct sg_io_hdr *hdr,
-				 struct bio *bio)
+				 struct bio *bio, int is_cdrom)
 {
 	int r, ret = 0;
 
@@ -282,7 +282,7 @@ static int blk_complete_sghdr_rq(struct request *rq, struct sg_io_hdr *hdr,
 			ret = -EFAULT;
 	}
 
-	if (sg_io_buffer_hack && !hdr->iovec_count)
+	if (sg_io_buffer_hack && !hdr->iovec_count && (is_cdrom == 0))
 		r = copy_to_user(hdr->dxferp, sg_io_buffer_hack,
 				hdr->dxfer_len);
 	else
@@ -295,7 +295,7 @@ static int blk_complete_sghdr_rq(struct request *rq, struct sg_io_hdr *hdr,
 }
 
 static int sg_io(struct request_queue *q, struct gendisk *bd_disk,
-		struct sg_io_hdr *hdr, fmode_t mode)
+		struct sg_io_hdr *hdr, fmode_t mode, int is_cdrom)
 {
 	unsigned long start_time;
 	ssize_t ret = 0;
@@ -311,7 +311,7 @@ static int sg_io(struct request_queue *q, struct gendisk *bd_disk,
 	if (hdr->dxfer_len > (queue_max_hw_sectors(q) << 9))
 		return -EIO;
 
-	if (sg_io_buffer_hack && hdr->dxfer_len > 0x10000)
+	if (sg_io_buffer_hack && hdr->dxfer_len > 0x10000 && (is_cdrom == 0))
 		return -EIO;
 
 	if (hdr->dxfer_len)
@@ -361,7 +361,7 @@ static int sg_io(struct request_queue *q, struct gendisk *bd_disk,
 		ret = blk_rq_map_user_iov(q, rq, NULL, &i, GFP_KERNEL);
 		kfree(iov);
 	} else if (hdr->dxfer_len) {
-		if (sg_io_buffer_hack)
+		if (sg_io_buffer_hack && (is_cdrom == 0))
 			ret = blk_rq_map_kern(q, rq, sg_io_buffer_hack,
 					hdr->dxfer_len, GFP_KERNEL);
 		else
@@ -388,7 +388,7 @@ static int sg_io(struct request_queue *q, struct gendisk *bd_disk,
 
 	hdr->duration = jiffies_to_msecs(jiffies - start_time);
 
-	ret = blk_complete_sghdr_rq(rq, hdr, bio);
+	ret = blk_complete_sghdr_rq(rq, hdr, bio, is_cdrom);
 
 out_free_cdb:
 	if (rq->cmd != rq->__cmd)
@@ -617,7 +617,7 @@ int scsi_cmd_ioctl(struct request_queue *q, struct gendisk *bd_disk, fmode_t mod
 			err = -EFAULT;
 			if (copy_from_user(&hdr, arg, sizeof(hdr)))
 				break;
-			err = sg_io(q, bd_disk, &hdr, mode);
+			err = sg_io(q, bd_disk, &hdr, mode, 0);
 			if (err == -EFAULT)
 				break;
 
@@ -665,7 +665,7 @@ int scsi_cmd_ioctl(struct request_queue *q, struct gendisk *bd_disk, fmode_t mod
 			hdr.cmdp = ((struct cdrom_generic_command __user*) arg)->cmd;
 			hdr.cmd_len = sizeof(cgc.cmd);
 
-			err = sg_io(q, bd_disk, &hdr, mode);
+			err = sg_io(q, bd_disk, &hdr, mode, 1);
 			if (err == -EFAULT)
 				break;
 

@@ -3621,6 +3621,8 @@ int sdinfo_process_fn(void *data)
                         sdisk = dev_get_drvdata(&sdev->sdev_gendev);
                         if(NULL == sdisk)
                             continue;
+						if (sdev->type != TYPE_DISK)
+							continue;
                         
                         switch(check_sd_info(&sdev->sdev_gendev))
                         {
