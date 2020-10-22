@@ -289,6 +289,9 @@ static const struct usb_device_id blacklist_table[] = {
 	{ USB_DEVICE(0x1286, 0x2046), .driver_info = BTUSB_MARVELL },
 
 	/* Intel Bluetooth devices */
+	{ USB_DEVICE(0x8087, 0x0025), .driver_info = BTUSB_INTEL_NEW },
+	{ USB_DEVICE(0x8087, 0x0026), .driver_info = BTUSB_INTEL_NEW },
+	{ USB_DEVICE(0x8087, 0x0029), .driver_info = BTUSB_INTEL_NEW },
 	{ USB_DEVICE(0x8087, 0x07da), .driver_info = BTUSB_CSR },
 	{ USB_DEVICE(0x8087, 0x07dc), .driver_info = BTUSB_INTEL },
 	{ USB_DEVICE(0x8087, 0x0a2a), .driver_info = BTUSB_INTEL },
@@ -2328,6 +2331,41 @@ static void btusb_intel_version_info(struct hci_dev *hdev,
 		ver->fw_build_num, ver->fw_build_ww, 2000 + ver->fw_build_yy);
 }
 
+static bool btusb_setup_intel_new_get_fw_name(struct intel_version *ver,
+					     struct intel_boot_params *params,
+					     char *fw_name, size_t len,
+					     const char *suffix)
+{
+	switch (ver->hw_variant) {
+	case 0x0b:	/* SfP */
+	case 0x0c:	/* WsP */
+		snprintf(fw_name, len, "intel/ibt-%u-%u.%s",
+			le16_to_cpu(ver->hw_variant),
+			le16_to_cpu(params->dev_revid),
+			suffix);
+		break;
+	case 0x11:	/* JfP */
+	case 0x12:	/* ThP */
+	case 0x13:	/* HrP */
+	case 0x14:	/* CcP */
+		snprintf(fw_name, len, "intel/ibt-%u-%u-%u.%s",
+			le16_to_cpu(ver->hw_variant),
+			le16_to_cpu(ver->hw_revision),
+			le16_to_cpu(ver->fw_revision),
+			suffix);
+		break;
+	default:
+        {
+            if(le16_to_cpu(params->dev_revid) == 5)
+            {
+                snprintf(fw_name, len, "intel/ibt-11-5.%s",suffix);
+                return true;
+            }
+		    return false;
+        }
+	}
+	return true;
+}
 static int btusb_setup_intel_new(struct hci_dev *hdev)
 {
 	static const u8 reset_param[] = { 0x00, 0x01, 0x00, 0x01,
@@ -2389,7 +2427,15 @@ static int btusb_setup_intel_new(struct hci_dev *hdev)
 	 * put in place to ensure correct forward compatibility options
 	 * when newer hardware variants come along.
 	 */
-	if (ver->hw_variant != 0x0b) {
+	switch (ver->hw_variant) {
+	case 0x0b:	/* SfP */
+	case 0x0c:	/* WsP */
+	case 0x11:	/* JfP */
+	case 0x12:	/* ThP */
+	case 0x13:	/* HrP */
+	case 0x14:	/* CcP */
+		break;
+	default:
 		BT_ERR("%s: Unsupported Intel hardware variant (%u)",
 		       hdev->name, ver->hw_variant);
 		kfree_skb(skb);
@@ -2490,9 +2536,36 @@ static int btusb_setup_intel_new(struct hci_dev *hdev)
 	 * Currently this bootloader support is limited to hardware variant
 	 * iBT 3.0 (LnP/SfP) which is identified by the value 11 (0x0b).
 	 */
-	snprintf(fwname, sizeof(fwname), "intel/ibt-11-%u.sfi",
-		 le16_to_cpu(params->dev_revid));
-
+    BT_ERR("++++%u++%u====%u====%u",ver->hw_variant,ver->hw_revision,ver->fw_revision,params->dev_revid);
+    /*
+    if((ver->hw_variant == 0x0b) ||(ver->hw_variant == 0x0c))
+    {
+	    snprintf(fwname, sizeof(fwname), "intel/ibt-%u-%u.sfi",
+                le16_to_cpu(ver->hw_variant),
+                le16_to_cpu(params->dev_revid));
+      //  BT_ERR("====%s",fwname);
+    }
+    else
+    {
+        if(le16_to_cpu(params->dev_revid)==16)
+        {
+	        snprintf(fwname, sizeof(fwname), "intel/ibt-12-%u.sfi",
+                    le16_to_cpu(params->dev_revid));
+        }
+        else
+        {
+	        snprintf(fwname, sizeof(fwname), "intel/ibt-11-%u.sfi",
+                    le16_to_cpu(params->dev_revid));
+        }
+    }
+    */
+	err = btusb_setup_intel_new_get_fw_name(ver, params, fwname,
+						sizeof(fwname), "sfi");
+	if (!err) {
+		BT_ERR("Unsupported Intel firmware naming");
+		kfree_skb(skb);
+		return -EINVAL;
+	}
 	err = request_firmware(&fw, fwname, &hdev->dev);
 	if (err < 0) {
 		BT_ERR("%s: Failed to load Intel firmware file (%d)",

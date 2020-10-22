@@ -3143,7 +3143,7 @@ reget:
 #ifdef  CONFIG_AURALIC_DISK_NAME_BIND
 	}
 // don't bind usb disk name for mini, only bind hdd disk name
-#if defined(CONFIG_AURALIC_MINI) || defined(CONFIG_AURALIC_ALTAIR) || defined(CONFIG_AURALIC_POLARIS) ||  defined(CONFIG_AURALIC_ARIES_G2) ||  defined(CONFIG_AURALIC_VEGA_G2) || defined(CONFIG_AURALIC_ALTAIR_G1) || defined(CONFIG_AURALIC_LM1)
+#if defined(CONFIG_AURALIC_MINI) || defined(CONFIG_AURALIC_ALTAIR) || defined(CONFIG_AURALIC_POLARIS) ||  defined(CONFIG_AURALIC_ARIES_G2) ||  defined(CONFIG_AURALIC_VEGA_G2) || defined(CONFIG_AURALIC_ALTAIR_G1) || defined(CONFIG_AURALIC_LM1) || defined(CONFIG_AURALIC_ALTAIR_G2)
 	if(AURALIC_SATA_ID == sdp->host->auralic_id)
     {   // sata
 		usb_index = get_sata_disk_index();
