@@ -270,9 +270,17 @@
 	pinctrl-names = "default";
 	pinctrl-0 = <&pinctrl_enet>;
 	phy-mode = "rgmii";
+    phy-handle = <&ethphy>;
 	phy-reset-gpios = <&gpio1 25 0>;
 	fsl,magic-packet;
 	status = "okay";
+    mdio {
+        #address-cells = <1>;
+        #size-cells = <0>;
+        ethphy: ethernet-phy {
+                    compatible = "ethernet-phy-ieee802.3-c22";
+                };
+    };
 };
 
 &gpc {
