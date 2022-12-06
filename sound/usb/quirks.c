@@ -1142,6 +1142,25 @@ static bool is_marantz_denon_dac(unsigned int id)
 	}
 	return false;
 }
+/* ITF-USB DSD based DACs need a vendor cmd to switch
+ * between PCM and native DSD mode
+ */
+static bool is_itf_usb_dsd_dac(unsigned int id)
+{
+	switch (id) {
+	case USB_ID(0x154e, 0x1002): /* Denon DCD-1500RE */
+	case USB_ID(0x154e, 0x1003): /* Denon DA-300USB */
+	case USB_ID(0x154e, 0x3005): /* Marantz HD-DAC1 */
+	case USB_ID(0x154e, 0x3006): /* Marantz SA-14S1 */
+	case USB_ID(0x1852, 0x5065): /* Luxman DA-06 */
+	case USB_ID(0x0644, 0x8043): /* TEAC UD-501/UD-501V2/UD-503/NT-503 */
+	case USB_ID(0x0644, 0x8044): /* Esoteric D-05X */
+	case USB_ID(0x0644, 0x804a): /* TEAC UD-301 */
+		return true;
+	}
+	return false;
+}
+
 
 int snd_usb_select_mode_quirk(struct snd_usb_substream *subs,
 			      struct audioformat *fmt)
@@ -1255,6 +1274,7 @@ void snd_usb_ctl_msg_quirk(struct usb_device *dev, unsigned int pipe,
  * hence all hardware that is known to support this format has to be
  * listed here.
  */
+#if 0
 u64 snd_usb_interface_dsd_format_quirks(struct snd_usb_audio *chip,
 					struct audioformat *fp,
 					unsigned int sample_bytes)
@@ -1315,6 +1335,129 @@ u64 snd_usb_interface_dsd_format_quirks(struct snd_usb_audio *chip,
     }
 	
 	#endif
+
+	return 0;
+}
+#endif
+u64 snd_usb_interface_dsd_format_quirks(struct snd_usb_audio *chip,
+					struct audioformat *fp,
+					unsigned int sample_bytes)
+{
+	struct usb_interface *iface;
+
+	/* Playback Designs */
+	if (USB_ID_VENDOR(chip->usb_id) == 0x23ba &&
+	    USB_ID_PRODUCT(chip->usb_id) < 0x0110) {
+		switch (fp->altsetting) {
+		case 1:
+			fp->dsd_dop = true;
+			return SNDRV_PCM_FMTBIT_DSD_U16_LE;
+		case 2:
+			fp->dsd_bitrev = true;
+			return SNDRV_PCM_FMTBIT_DSD_U8;
+		case 3:
+			fp->dsd_bitrev = true;
+			return SNDRV_PCM_FMTBIT_DSD_U16_LE;
+		}
+	}
+    if (USB_ID_VENDOR(chip->usb_id) == 0x1511) {
+        if ((fp->altsetting == 2) || (fp->altsetting == 3) )
+            return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+    }
+
+	/* XMOS based USB DACs */
+	switch (chip->usb_id) {
+	case USB_ID(0x1511, 0x0037): /* AURALiC VEGA */
+	case USB_ID(0x2522, 0x0012): /* LH Labs VI DAC Infinity */
+	case USB_ID(0x2772, 0x0230): /* Pro-Ject Pre Box S2 Digital */
+		if (fp->altsetting == 2)
+			return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+		break;
+
+	case USB_ID(0x0d8c, 0x0316): /* Hegel HD12 DSD */
+	case USB_ID(0x10cb, 0x0103): /* The Bit Opus #3; with fp->dsd_raw */
+	case USB_ID(0x16d0, 0x06b2): /* NuPrime DAC-10 */
+	case USB_ID(0x16d0, 0x09dd): /* Encore mDSD */
+	case USB_ID(0x16d0, 0x0733): /* Furutech ADL Stratos */
+	case USB_ID(0x16d0, 0x09db): /* NuPrime Audio DAC-9 */
+	case USB_ID(0x1db5, 0x0003): /* Bryston BDA3 */
+	case USB_ID(0x22e1, 0xca01): /* HDTA Serenade DSD */
+	case USB_ID(0x249c, 0x9326): /* M2Tech Young MkIII */
+	case USB_ID(0x2616, 0x0106): /* PS Audio NuWave DAC */
+	case USB_ID(0x2622, 0x0041): /* Audiolab M-DAC+ */
+	case USB_ID(0x27f7, 0x3002): /* W4S DAC-2v2SE */
+	case USB_ID(0x29a2, 0x0086): /* Mutec MC3+ USB */
+	case USB_ID(0x6b42, 0x0042): /* MSB Technology */
+		if (fp->altsetting == 3)
+			return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+		break;
+
+	/* Amanero Combo384 USB based DACs with native DSD support */
+	case USB_ID(0x16d0, 0x071a):  /* Amanero - Combo384 */
+	case USB_ID(0x2ab6, 0x0004):  /* T+A DAC8DSD-V2.0, MP1000E-V2.0, MP2000R-V2.0, MP2500R-V2.0, MP3100HV-V2.0 */
+	case USB_ID(0x2ab6, 0x0005):  /* T+A USB HD Audio 1 */
+	case USB_ID(0x2ab6, 0x0006):  /* T+A USB HD Audio 2 */
+		if (fp->altsetting == 2) {
+			switch (le16_to_cpu(chip->dev->descriptor.bcdDevice)) {
+			case 0x199:
+				return SNDRV_PCM_FMTBIT_DSD_U32_LE;
+			case 0x19b:
+			case 0x203:
+				return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+			default:
+				break;
+			}
+		}
+		break;
+	case USB_ID(0x16d0, 0x0a23):
+		if (fp->altsetting == 2)
+			return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+		break;
+
+	default:
+		break;
+	}
+
+	/* ITF-USB DSD based DACs */
+	if (is_itf_usb_dsd_dac(chip->usb_id)) {
+		iface = usb_ifnum_to_if(chip->dev, fp->iface);
+
+		/* Altsetting 2 support native DSD if the num of altsets is
+		 * three (0-2),
+		 * Altsetting 3 support native DSD if the num of altsets is
+		 * four (0-3).
+		 */
+		if (fp->altsetting == iface->num_altsetting - 1)
+			return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+	}
+
+	/* Mostly generic method to detect many DSD-capable implementations -
+	 * from XMOS/Thesycon
+	 */
+	switch (USB_ID_VENDOR(chip->usb_id)) {
+	case 0x152a:  /* Thesycon devices */
+	case 0x20b1:  /* XMOS based devices */
+	case 0x22d9:  /* Oppo */
+	case 0x23ba:  /* Playback Designs */
+	case 0x25ce:  /* Mytek devices */
+	case 0x278b:  /* Rotel? */
+	case 0x292b:  /* Gustard/Ess based devices */
+	case 0x2972:  /* FiiO devices */
+	case 0x2ab6:  /* T+A devices */
+	case 0x3353:  /* Khadas devices */
+	case 0x3842:  /* EVGA */
+	case 0xc502:  /* HiBy devices */
+		if (fp->dsd_raw)
+			return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+		break;
+	default:
+        {
+            if ((fp->altsetting == 2) || (fp->altsetting == 3) )
+                return SNDRV_PCM_FMTBIT_DSD_U32_BE;
+        }
+		break;
+
+	}
 
 	return 0;
 }
